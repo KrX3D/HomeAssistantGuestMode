@@ -134,7 +134,7 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         data["saved_states"][self.zone_id] = {}
 
         # Collect all entities to manage
-        all_entities = (
+        all_entities_to_manage = (
             self.zone_data.get("automations_off", [])
             + self.zone_data.get("automations_on", [])
             + self.zone_data.get("scripts_off", [])

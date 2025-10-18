@@ -1,31 +1,23 @@
-def _get_automation_options(self):
-        """Get automation options."""
-        return [
-            {"value": entity_id, "label": entity_id}
-            for entity_id in self.hass.states.async_entity_ids("automation")
-        ]
-
-    def _get_script_options(self):
-        """Get script options."""
-        return [
-            {"value": entity_id, "label": entity_id}
-            for entity_id in self.hass.states.async_entity_ids("script")
-        ]
-
-    def _get_entity_options(self):
-        """Get all entity options."""
-        excluded_domains = ["automation", "script"]
-        all_entities = []
-        for entity_id in self.hass.states.async_entity_ids():
-            domain = entity_id.split(".")[0]
-            if domain not in excluded_domains:
-                all_entities.append({"value": entity_id, "label": entity_id})
-        return all_entitiesfrom homeassistant import config_entries
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.selector import EntitySelector
+import logging
 import voluptuous as vol
+from homeassistant import config_entries
+from homeassistant.core import callback
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import selector
 
-DOMAIN = "guest_mode"
+from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+CONF_ZONE_NAME = "zone_name"
+CONF_AUTOMATIONS_OFF = "automations_off"
+CONF_AUTOMATIONS_ON = "automations_on"
+CONF_SCRIPTS_OFF = "scripts_off"
+CONF_SCRIPTS_ON = "scripts_on"
+CONF_ENTITIES_OFF = "entities_off"
+CONF_ENTITIES_ON = "entities_on"
+CONF_WIFI_ENTITY = "wifi_entity"
+CONF_WIFI_MODE = "wifi_mode"
 
 
 class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -34,106 +26,89 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Initial step."""
+        """Initial step - Set up global WiFi."""
         if user_input is not None:
-            self.zones = {}
-            self.global_wifi = {"entity": None, "mode": "off"}
-            return await self.async_step_set_global_wifi()
-
-        return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
-
-    async def async_step_set_global_wifi(self, user_input=None):
-        """Set global WiFi settings."""
-        if user_input is not None:
-            wifi_entity = user_input.get("wifi_entity")
             self.global_wifi = {
-                "entity": wifi_entity if wifi_entity else None,
-                "mode": user_input.get("wifi_mode", "off"),
+                "entity": user_input.get(CONF_WIFI_ENTITY),
+                "mode": user_input.get(CONF_WIFI_MODE, "off"),
             }
-            return await self.async_step_add_first_zone()
+            self.zones = {}
+            return await self.async_step_add_zone()
 
         schema = vol.Schema(
             {
-                vol.Optional("wifi_entity"): EntitySelector(),
-                vol.Optional("wifi_mode", default="off"): vol.In(["on", "off"]),
+                vol.Optional(CONF_WIFI_ENTITY): selector.EntitySelector(),
+                vol.Optional(CONF_WIFI_MODE, default="off"): vol.In(["on", "off"]),
             }
         )
 
         return self.async_show_form(
-            step_id="set_global_wifi",
+            step_id="user",
             data_schema=schema,
-            description_placeholders={"info": "Configure WiFi settings (optional)"},
+            description_placeholders={"info": "Set up global WiFi (optional)"},
         )
 
-    async def async_step_add_first_zone(self, user_input=None):
-        """Add first zone."""
+    async def async_step_add_zone(self, user_input=None):
+        """Add a zone."""
         if user_input is not None:
-            zone_name = user_input["zone_name"].lower().replace(" ", "_")
+            zone_name = user_input[CONF_ZONE_NAME].lower().replace(" ", "_")
 
             self.zones[zone_name] = {
-                "name": user_input["zone_name"],
-                "automations_off": user_input.get("automations_off", []),
-                "automations_on": user_input.get("automations_on", []),
-                "scripts_off": user_input.get("scripts_off", []),
-                "scripts_on": user_input.get("scripts_on", []),
-                "entities_off": user_input.get("entities_off", []),
-                "entities_on": user_input.get("entities_on", []),
+                "name": user_input[CONF_ZONE_NAME],
+                CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
+                CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
+                CONF_SCRIPTS_ON: user_input.get(CONF_SCRIPTS_ON, []),
+                CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
+                CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
             }
+
+            if user_input.get("add_another"):
+                return await self.async_step_add_zone()
 
             return self.async_create_entry(
                 title="Guest Mode",
                 data={"zones": self.zones, "global_wifi": self.global_wifi},
             )
 
+        # Get automation and script options
+        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
+        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
+        all_entities = sorted([e for e in self.hass.states.async_entity_ids() 
+                              if not e.startswith("automation.") and not e.startswith("script.")])
+
         schema = vol.Schema(
             {
-                vol.Required("zone_name"): str,
-                vol.Optional("automations_off", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Required(CONF_ZONE_NAME): cv.string,
+                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
+                    cv.multi_select(all_automations)
                 ),
-                vol.Optional("automations_on", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
+                    cv.multi_select(all_automations)
                 ),
-                vol.Optional("scripts_off", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
+                    cv.multi_select(all_scripts)
                 ),
-                vol.Optional("scripts_on", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
+                    cv.multi_select(all_scripts)
                 ),
-                vol.Optional("entities_off", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
+                    cv.multi_select(all_entities)
                 ),
-                vol.Optional("entities_on", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
+                    cv.multi_select(all_entities)
                 ),
+                vol.Optional("add_another", default=False): cv.boolean,
             }
         )
 
-        return self.async_show_form(step_id="add_first_zone", data_schema=schema)
+        return self.async_show_form(step_id="add_zone", data_schema=schema)
 
-    def _get_automation_options(self):
-        """Get automation options."""
-        return [
-            {"value": entity_id, "label": entity_id}
-            for entity_id in self.hass.states.async_entity_ids("automation")
-        ]
-
-    def _get_script_options(self):
-        """Get script options."""
-        return [
-            {"value": entity_id, "label": entity_id}
-            for entity_id in self.hass.states.async_entity_ids("script")
-        ]
-
-    def _get_entity_options(self):
-        """Get all entity options."""
-        excluded_domains = ["automation", "script"]
-        all_entities = []
-        for entity_id in self.hass.states.async_entity_ids():
-            domain = entity_id.split(".")[0]
-            if domain not in excluded_domains:
-                all_entities.append({"value": entity_id, "label": entity_id})
-        return all_entities
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow."""
+        return GuestModeOptionsFlow(config_entry)
 
 
 class GuestModeOptionsFlow(config_entries.OptionsFlow):
@@ -163,14 +138,16 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 zone_id = user_input.get("zone_select")
                 self.zones.pop(zone_id, None)
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry, data={"zones": self.zones, "global_wifi": self.global_wifi}
+                    self.config_entry,
+                    data={"zones": self.zones, "global_wifi": self.global_wifi},
                 )
                 return await self.async_step_manage_menu()
             elif action == "edit_wifi":
                 return await self.async_step_edit_global_wifi()
             elif action == "done":
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry, data={"zones": self.zones, "global_wifi": self.global_wifi}
+                    self.config_entry,
+                    data={"zones": self.zones, "global_wifi": self.global_wifi},
                 )
                 return self.async_abort(reason="reconfigure_successful")
 
@@ -181,7 +158,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("action"): vol.In(["add", "edit", "delete", "edit_wifi", "done"]),
-                vol.Optional("zone_select"): vol.In(zone_choices) if zone_choices else None,
+                vol.Optional("zone_select"): vol.In(zone_choices) if zone_choices else cv.string,
             }
         )
 
@@ -190,17 +167,20 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
     async def async_step_edit_global_wifi(self, user_input=None):
         """Edit global WiFi settings."""
         if user_input is not None:
-            wifi_entity = user_input.get("wifi_entity")
             self.global_wifi = {
-                "entity": wifi_entity if wifi_entity else None,
-                "mode": user_input.get("wifi_mode", "off"),
+                "entity": user_input.get(CONF_WIFI_ENTITY),
+                "mode": user_input.get(CONF_WIFI_MODE, "off"),
             }
             return await self.async_step_manage_menu()
 
         schema = vol.Schema(
             {
-                vol.Optional("wifi_entity", default=self.global_wifi.get("entity")): EntitySelector(),
-                vol.Optional("wifi_mode", default=self.global_wifi.get("mode", "off")): vol.In(["on", "off"]),
+                vol.Optional(
+                    CONF_WIFI_ENTITY, default=self.global_wifi.get("entity")
+                ): selector.EntitySelector(),
+                vol.Optional(
+                    CONF_WIFI_MODE, default=self.global_wifi.get("mode", "off")
+                ): vol.In(["on", "off"]),
             }
         )
 
@@ -209,39 +189,44 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
     async def async_step_add_zone(self, user_input=None):
         """Add a new zone."""
         if user_input is not None:
-            zone_name = user_input["zone_name"].lower().replace(" ", "_")
+            zone_name = user_input[CONF_ZONE_NAME].lower().replace(" ", "_")
 
             self.zones[zone_name] = {
-                "name": user_input["zone_name"],
-                "automations_off": user_input.get("automations_off", []),
-                "automations_on": user_input.get("automations_on", []),
-                "scripts_off": user_input.get("scripts_off", []),
-                "scripts_on": user_input.get("scripts_on", []),
-                "entities_off": user_input.get("entities_off", []),
-                "entities_on": user_input.get("entities_on", []),
+                "name": user_input[CONF_ZONE_NAME],
+                CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
+                CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
+                CONF_SCRIPTS_ON: user_input.get(CONF_SCRIPTS_ON, []),
+                CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
+                CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
             }
             return await self.async_step_manage_menu()
 
+        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
+        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
+        all_entities = sorted([e for e in self.hass.states.async_entity_ids() 
+                              if not e.startswith("automation.") and not e.startswith("script.")])
+
         schema = vol.Schema(
             {
-                vol.Required("zone_name"): str,
-                vol.Optional("automations_off", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Required(CONF_ZONE_NAME): cv.string,
+                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
+                    cv.multi_select(all_automations)
                 ),
-                vol.Optional("automations_on", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
+                    cv.multi_select(all_automations)
                 ),
-                vol.Optional("scripts_off", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
+                    cv.multi_select(all_scripts)
                 ),
-                vol.Optional("scripts_on", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
+                    cv.multi_select(all_scripts)
                 ),
-                vol.Optional("entities_off", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
+                    cv.multi_select(all_entities)
                 ),
-                vol.Optional("entities_on", default=[]): vol.All(
-                    cv.ensure_list, [str]
+                vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
+                    cv.multi_select(all_entities)
                 ),
             }
         )
@@ -254,64 +239,45 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             zone_id = self.zone_to_edit
 
             self.zones[zone_id] = {
-                "name": user_input["zone_name"],
-                "automations_off": user_input.get("automations_off", []),
-                "automations_on": user_input.get("automations_on", []),
-                "scripts_off": user_input.get("scripts_off", []),
-                "scripts_on": user_input.get("scripts_on", []),
-                "entities_off": user_input.get("entities_off", []),
-                "entities_on": user_input.get("entities_on", []),
+                "name": user_input[CONF_ZONE_NAME],
+                CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
+                CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
+                CONF_SCRIPTS_ON: user_input.get(CONF_SCRIPTS_ON, []),
+                CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
+                CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
             }
             return await self.async_step_manage_menu()
 
         zone = self.zones[self.zone_to_edit]
 
+        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
+        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
+        all_entities = sorted([e for e in self.hass.states.async_entity_ids() 
+                              if not e.startswith("automation.") and not e.startswith("script.")])
+
         schema = vol.Schema(
             {
-                vol.Required("zone_name", default=zone["name"]): str,
-                vol.Optional("automations_off", default=zone.get("automations_off", [])): vol.All(
-                    cv.ensure_list, [str]
-                ),
-                vol.Optional("automations_on", default=zone.get("automations_on", [])): vol.All(
-                    cv.ensure_list, [str]
-                ),
-                vol.Optional("scripts_off", default=zone.get("scripts_off", [])): vol.All(
-                    cv.ensure_list, [str]
-                ),
-                vol.Optional("scripts_on", default=zone.get("scripts_on", [])): vol.All(
-                    cv.ensure_list, [str]
-                ),
-                vol.Optional("entities_off", default=zone.get("entities_off", [])): vol.All(
-                    cv.ensure_list, [str]
-                ),
-                vol.Optional("entities_on", default=zone.get("entities_on", [])): vol.All(
-                    cv.ensure_list, [str]
-                ),
+                vol.Required(CONF_ZONE_NAME, default=zone["name"]): cv.string,
+                vol.Optional(
+                    CONF_AUTOMATIONS_OFF, default=zone.get(CONF_AUTOMATIONS_OFF, [])
+                ): vol.All(cv.multi_select(all_automations)),
+                vol.Optional(
+                    CONF_AUTOMATIONS_ON, default=zone.get(CONF_AUTOMATIONS_ON, [])
+                ): vol.All(cv.multi_select(all_automations)),
+                vol.Optional(
+                    CONF_SCRIPTS_OFF, default=zone.get(CONF_SCRIPTS_OFF, [])
+                ): vol.All(cv.multi_select(all_scripts)),
+                vol.Optional(
+                    CONF_SCRIPTS_ON, default=zone.get(CONF_SCRIPTS_ON, [])
+                ): vol.All(cv.multi_select(all_scripts)),
+                vol.Optional(
+                    CONF_ENTITIES_OFF, default=zone.get(CONF_ENTITIES_OFF, [])
+                ): vol.All(cv.multi_select(all_entities)),
+                vol.Optional(
+                    CONF_ENTITIES_ON, default=zone.get(CONF_ENTITIES_ON, [])
+                ): vol.All(cv.multi_select(all_entities)),
             }
         )
 
         return self.async_show_form(step_id="edit_zone", data_schema=schema)
-
-    def _get_automation_options(self):
-        """Get automation options."""
-        return [
-            {"value": entity_id, "label": entity_id}
-            for entity_id in self.hass.states.async_entity_ids("automation")
-        ]
-
-    def _get_script_options(self):
-        """Get script options."""
-        return [
-            {"value": entity_id, "label": entity_id}
-            for entity_id in self.hass.states.async_entity_ids("script")
-        ]
-
-    def _get_entity_options(self):
-        """Get all entity options."""
-        excluded_domains = ["automation", "script"]
-        all_entities = []
-        for entity_id in self.hass.states.async_entity_ids():
-            domain = entity_id.split(".")[0]
-            if domain not in excluded_domains:
-                all_entities.append({"value": entity_id, "label": entity_id})
-        return all_entities
