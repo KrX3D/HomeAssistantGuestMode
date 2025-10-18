@@ -57,7 +57,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_input.get("add_another"):
                 return await self.async_step_add_zone()
 
-            return self.async_step_setup_wifi()
+            return await self.async_step_setup_wifi()
 
         # Get automation and script options
         all_automations = sorted(self.hass.states.async_entity_ids("automation"))
