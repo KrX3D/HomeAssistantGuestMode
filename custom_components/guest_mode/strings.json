@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Guest Mode Setup",
+        "description": "Set up guest mode for your home. You can add multiple zones."
+      },
+      "add_zone": {
+        "title": "Add Zone",
+        "description": "Create a new guest mode zone",
+        "data": {
+          "zone_name": "Zone Name (e.g., Living Room)",
+          "automations": "Automations to disable",
+          "scripts": "Scripts to disable",
+          "entities": "Entities to turn off",
+          "wifi_entity": "WiFi entity (optional)",
+          "wifi_mode": "WiFi mode when guest mode enabled"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "manage_zones": {
+        "title": "Manage Zones",
+        "description": "Add, edit, or remove zones",
+        "data": {
+          "action": "Action",
+          "zone_select": "Select Zone"
+        }
+      },
+      "add_zone": {
+        "title": "Add Zone",
+        "data": {
+          "zone_name": "Zone Name",
+          "automations": "Automations to disable",
+          "scripts": "Scripts to disable",
+          "entities": "Entities to turn off",
+          "wifi_entity": "WiFi entity (optional)",
+          "wifi_mode": "WiFi mode when guest mode enabled"
+        }
+      },
+      "edit_zone": {
+        "title": "Edit Zone",
+        "data": {
+          "zone_name": "Zone Name",
+          "automations": "Automations to disable",
+          "scripts": "Scripts to disable",
+          "entities": "Entities to turn off",
+          "wifi_entity": "WiFi entity (optional)",
+          "wifi_mode": "WiFi mode when guest mode enabled"
+        }
+      }
+    }
+  }
+}
