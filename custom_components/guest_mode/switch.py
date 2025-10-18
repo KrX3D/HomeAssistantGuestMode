@@ -2,9 +2,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
+from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -133,39 +133,60 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         data = self.hass.data[DOMAIN][self.entry.entry_id]
         data["saved_states"][self.zone_id] = {}
 
+        # Collect all entities to manage
+        all_entities = (
+            self.zone_data.get("automations_off", [])
+            + self.zone_data.get("automations_on", [])
+            + self.zone_data.get("scripts_off", [])
+            + self.zone_data.get("scripts_on", [])
+            + self.zone_data.get("entities_off", [])
+            + self.zone_data.get("entities_on", [])
+        )
+
         # Save current states
-        for entity_id in (
-            self.zone_data.get("automations", [])
-            + self.zone_data.get("scripts", [])
-            + self.zone_data.get("entities", [])
-        ):
+        for entity_id in all_entities:
             state = self.hass.states.get(entity_id)
             if state:
                 data["saved_states"][self.zone_id][entity_id] = state.state
 
-        # Turn off automations and scripts
-        for entity_id in self.zone_data.get("automations", []):
+        # Turn OFF entities
+        for entity_id in self.zone_data.get("automations_off", []):
             await self.hass.services.async_call(
                 "automation", "turn_off", {"entity_id": entity_id}
             )
 
-        for entity_id in self.zone_data.get("scripts", []):
+        for entity_id in self.zone_data.get("scripts_off", []):
             await self.hass.services.async_call(
                 "script", "turn_off", {"entity_id": entity_id}
             )
 
-        # Turn off entities
-        for entity_id in self.zone_data.get("entities", []):
+        for entity_id in self.zone_data.get("entities_off", []):
             await self.hass.services.async_call(
                 "homeassistant", "turn_off", {"entity_id": entity_id}
             )
 
-        # Handle WiFi
-        wifi_entity = self.zone_data.get("wifi_entity")
-        if wifi_entity:
-            service = "turn_on" if self.zone_data.get("wifi_mode") == "on" else "turn_off"
+        # Turn ON entities
+        for entity_id in self.zone_data.get("automations_on", []):
             await self.hass.services.async_call(
-                "homeassistant", service, {"entity_id": wifi_entity}
+                "automation", "turn_on", {"entity_id": entity_id}
+            )
+
+        for entity_id in self.zone_data.get("scripts_on", []):
+            await self.hass.services.async_call(
+                "script", "turn_on", {"entity_id": entity_id}
+            )
+
+        for entity_id in self.zone_data.get("entities_on", []):
+            await self.hass.services.async_call(
+                "homeassistant", "turn_on", {"entity_id": entity_id}
+            )
+
+        # Handle global WiFi
+        global_wifi = self.entry.data.get("global_wifi", {})
+        if global_wifi.get("entity"):
+            service = "turn_on" if global_wifi.get("mode") == "on" else "turn_off"
+            await self.hass.services.async_call(
+                "homeassistant", service, {"entity_id": global_wifi["entity"]}
             )
 
         self.async_write_ha_state()

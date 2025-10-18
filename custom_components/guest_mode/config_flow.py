@@ -1,5 +1,5 @@
 from homeassistant import config_entries
-from homeassistant.helpers.selector import EntitySelector
+from homeassistant.helpers.selector import EntitySelector, DomainSelector, MultiSelectSelector
 import voluptuous as vol
 
 DOMAIN = "guest_mode"
@@ -14,47 +14,20 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initial step."""
         if user_input is not None:
             self.zones = {}
-            return await self.async_step_setup_menu()
+            self.global_wifi = {"entity": None, "mode": "off"}
+            return await self.async_step_set_global_wifi()
 
         return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
-
-    async def async_step_setup_menu(self, user_input=None):
-        """Main setup menu - choose to add zone or global wifi."""
-        if user_input is not None:
-            action = user_input.get("action")
-
-            if action == "add_zone":
-                return await self.async_step_add_zone()
-            elif action == "set_wifi":
-                return await self.async_step_set_global_wifi()
-            elif action == "done":
-                return self.async_create_entry(
-                    title="Guest Mode",
-                    data={"zones": self.zones, "global_wifi": getattr(self, "global_wifi", None)},
-                )
-
-        schema = vol.Schema(
-            {
-                vol.Required("action"): vol.In(["add_zone", "set_wifi", "done"]),
-            }
-        )
-
-        return self.async_show_form(
-            step_id="setup_menu",
-            data_schema=schema,
-            description_placeholders={
-                "zones": f"Zones configured: {len(self.zones)}"
-            },
-        )
 
     async def async_step_set_global_wifi(self, user_input=None):
         """Set global WiFi settings."""
         if user_input is not None:
+            wifi_entity = user_input.get("wifi_entity")
             self.global_wifi = {
-                "entity": user_input.get("wifi_entity"),
+                "entity": wifi_entity if wifi_entity else None,
                 "mode": user_input.get("wifi_mode", "off"),
             }
-            return await self.async_step_setup_menu()
+            return await self.async_step_add_first_zone()
 
         schema = vol.Schema(
             {
@@ -63,47 +36,81 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(step_id="set_global_wifi", data_schema=schema)
+        return self.async_show_form(
+            step_id="set_global_wifi",
+            data_schema=schema,
+            description_placeholders={"info": "Configure WiFi settings (optional)"},
+        )
 
-    async def async_step_add_zone(self, user_input=None):
-        """Add a zone."""
+    async def async_step_add_first_zone(self, user_input=None):
+        """Add first zone."""
         if user_input is not None:
-            if not hasattr(self, "zones"):
-                self.zones = {}
-
             zone_name = user_input["zone_name"].lower().replace(" ", "_")
-            
-            automations = user_input.get("automations")
-            if isinstance(automations, str):
-                automations = [automations] if automations else []
-            
-            scripts = user_input.get("scripts")
-            if isinstance(scripts, str):
-                scripts = [scripts] if scripts else []
-            
-            entities = user_input.get("entities")
-            if isinstance(entities, str):
-                entities = [entities] if entities else []
 
             self.zones[zone_name] = {
                 "name": user_input["zone_name"],
-                "automations": automations or [],
-                "scripts": scripts or [],
-                "entities": entities or [],
+                "automations_off": user_input.get("automations_off", []),
+                "automations_on": user_input.get("automations_on", []),
+                "scripts_off": user_input.get("scripts_off", []),
+                "scripts_on": user_input.get("scripts_on", []),
+                "entities_off": user_input.get("entities_off", []),
+                "entities_on": user_input.get("entities_on", []),
             }
 
-            return await self.async_step_setup_menu()
+            return self.async_create_entry(
+                title="Guest Mode",
+                data={"zones": self.zones, "global_wifi": self.global_wifi},
+            )
 
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations"): EntitySelector(),
-                vol.Optional("scripts"): EntitySelector(),
-                vol.Optional("entities"): EntitySelector(),
+                vol.Optional("automations_off", default=[]): MultiSelectSelector(
+                    {"options": self._get_automation_options()}
+                ),
+                vol.Optional("automations_on", default=[]): MultiSelectSelector(
+                    {"options": self._get_automation_options()}
+                ),
+                vol.Optional("scripts_off", default=[]): MultiSelectSelector(
+                    {"options": self._get_script_options()}
+                ),
+                vol.Optional("scripts_on", default=[]): MultiSelectSelector(
+                    {"options": self._get_script_options()}
+                ),
+                vol.Optional("entities_off", default=[]): MultiSelectSelector(
+                    {"options": self._get_entity_options()}
+                ),
+                vol.Optional("entities_on", default=[]): MultiSelectSelector(
+                    {"options": self._get_entity_options()}
+                ),
             }
         )
 
-        return self.async_show_form(step_id="add_zone", data_schema=schema)
+        return self.async_show_form(step_id="add_first_zone", data_schema=schema)
+
+    def _get_automation_options(self):
+        """Get automation options."""
+        return [
+            {"value": entity_id, "label": entity_id}
+            for entity_id in self.hass.states.async_entity_ids("automation")
+        ]
+
+    def _get_script_options(self):
+        """Get script options."""
+        return [
+            {"value": entity_id, "label": entity_id}
+            for entity_id in self.hass.states.async_entity_ids("script")
+        ]
+
+    def _get_entity_options(self):
+        """Get all entity options."""
+        excluded_domains = ["automation", "script"]
+        all_entities = []
+        for entity_id in self.hass.states.async_entity_ids():
+            domain = entity_id.split(".")[0]
+            if domain not in excluded_domains:
+                all_entities.append({"value": entity_id, "label": entity_id})
+        return all_entities
 
 
 class GuestModeOptionsFlow(config_entries.OptionsFlow):
@@ -151,7 +158,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("action"): vol.In(["add", "edit", "delete", "edit_wifi", "done"]),
-                vol.Optional("zone_select"): vol.In(zone_choices),
+                vol.Optional("zone_select"): vol.In(zone_choices) if zone_choices else None,
             }
         )
 
@@ -160,8 +167,9 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
     async def async_step_edit_global_wifi(self, user_input=None):
         """Edit global WiFi settings."""
         if user_input is not None:
+            wifi_entity = user_input.get("wifi_entity")
             self.global_wifi = {
-                "entity": user_input.get("wifi_entity"),
+                "entity": wifi_entity if wifi_entity else None,
                 "mode": user_input.get("wifi_mode", "off"),
             }
             return await self.async_step_manage_menu()
@@ -179,33 +187,39 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         """Add a new zone."""
         if user_input is not None:
             zone_name = user_input["zone_name"].lower().replace(" ", "_")
-            
-            automations = user_input.get("automations")
-            if isinstance(automations, str):
-                automations = [automations] if automations else []
-            
-            scripts = user_input.get("scripts")
-            if isinstance(scripts, str):
-                scripts = [scripts] if scripts else []
-            
-            entities = user_input.get("entities")
-            if isinstance(entities, str):
-                entities = [entities] if entities else []
 
             self.zones[zone_name] = {
                 "name": user_input["zone_name"],
-                "automations": automations or [],
-                "scripts": scripts or [],
-                "entities": entities or [],
+                "automations_off": user_input.get("automations_off", []),
+                "automations_on": user_input.get("automations_on", []),
+                "scripts_off": user_input.get("scripts_off", []),
+                "scripts_on": user_input.get("scripts_on", []),
+                "entities_off": user_input.get("entities_off", []),
+                "entities_on": user_input.get("entities_on", []),
             }
             return await self.async_step_manage_menu()
 
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations"): EntitySelector(),
-                vol.Optional("scripts"): EntitySelector(),
-                vol.Optional("entities"): EntitySelector(),
+                vol.Optional("automations_off", default=[]): MultiSelectSelector(
+                    {"options": self._get_automation_options()}
+                ),
+                vol.Optional("automations_on", default=[]): MultiSelectSelector(
+                    {"options": self._get_automation_options()}
+                ),
+                vol.Optional("scripts_off", default=[]): MultiSelectSelector(
+                    {"options": self._get_script_options()}
+                ),
+                vol.Optional("scripts_on", default=[]): MultiSelectSelector(
+                    {"options": self._get_script_options()}
+                ),
+                vol.Optional("entities_off", default=[]): MultiSelectSelector(
+                    {"options": self._get_entity_options()}
+                ),
+                vol.Optional("entities_on", default=[]): MultiSelectSelector(
+                    {"options": self._get_entity_options()}
+                ),
             }
         )
 
@@ -215,24 +229,15 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         """Edit an existing zone."""
         if user_input is not None:
             zone_id = self.zone_to_edit
-            
-            automations = user_input.get("automations")
-            if isinstance(automations, str):
-                automations = [automations] if automations else []
-            
-            scripts = user_input.get("scripts")
-            if isinstance(scripts, str):
-                scripts = [scripts] if scripts else []
-            
-            entities = user_input.get("entities")
-            if isinstance(entities, str):
-                entities = [entities] if entities else []
 
             self.zones[zone_id] = {
                 "name": user_input["zone_name"],
-                "automations": automations or [],
-                "scripts": scripts or [],
-                "entities": entities or [],
+                "automations_off": user_input.get("automations_off", []),
+                "automations_on": user_input.get("automations_on", []),
+                "scripts_off": user_input.get("scripts_off", []),
+                "scripts_on": user_input.get("scripts_on", []),
+                "entities_off": user_input.get("entities_off", []),
+                "entities_on": user_input.get("entities_on", []),
             }
             return await self.async_step_manage_menu()
 
@@ -241,10 +246,49 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("zone_name", default=zone["name"]): str,
-                vol.Optional("automations", default=zone.get("automations", [])): EntitySelector(),
-                vol.Optional("scripts", default=zone.get("scripts", [])): EntitySelector(),
-                vol.Optional("entities", default=zone.get("entities", [])): EntitySelector(),
+                vol.Optional("automations_off", default=zone.get("automations_off", [])): MultiSelectSelector(
+                    {"options": self._get_automation_options()}
+                ),
+                vol.Optional("automations_on", default=zone.get("automations_on", [])): MultiSelectSelector(
+                    {"options": self._get_automation_options()}
+                ),
+                vol.Optional("scripts_off", default=zone.get("scripts_off", [])): MultiSelectSelector(
+                    {"options": self._get_script_options()}
+                ),
+                vol.Optional("scripts_on", default=zone.get("scripts_on", [])): MultiSelectSelector(
+                    {"options": self._get_script_options()}
+                ),
+                vol.Optional("entities_off", default=zone.get("entities_off", [])): MultiSelectSelector(
+                    {"options": self._get_entity_options()}
+                ),
+                vol.Optional("entities_on", default=zone.get("entities_on", [])): MultiSelectSelector(
+                    {"options": self._get_entity_options()}
+                ),
             }
         )
 
         return self.async_show_form(step_id="edit_zone", data_schema=schema)
+
+    def _get_automation_options(self):
+        """Get automation options."""
+        return [
+            {"value": entity_id, "label": entity_id}
+            for entity_id in self.hass.states.async_entity_ids("automation")
+        ]
+
+    def _get_script_options(self):
+        """Get script options."""
+        return [
+            {"value": entity_id, "label": entity_id}
+            for entity_id in self.hass.states.async_entity_ids("script")
+        ]
+
+    def _get_entity_options(self):
+        """Get all entity options."""
+        excluded_domains = ["automation", "script"]
+        all_entities = []
+        for entity_id in self.hass.states.async_entity_ids():
+            domain = entity_id.split(".")[0]
+            if domain not in excluded_domains:
+                all_entities.append({"value": entity_id, "label": entity_id})
+        return all_entities
