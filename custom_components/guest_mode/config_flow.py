@@ -14,9 +14,56 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initial step."""
         if user_input is not None:
             self.zones = {}
-            return await self.async_step_add_zone()
+            return await self.async_step_setup_menu()
 
         return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
+
+    async def async_step_setup_menu(self, user_input=None):
+        """Main setup menu - choose to add zone or global wifi."""
+        if user_input is not None:
+            action = user_input.get("action")
+
+            if action == "add_zone":
+                return await self.async_step_add_zone()
+            elif action == "set_wifi":
+                return await self.async_step_set_global_wifi()
+            elif action == "done":
+                return self.async_create_entry(
+                    title="Guest Mode",
+                    data={"zones": self.zones, "global_wifi": getattr(self, "global_wifi", None)},
+                )
+
+        schema = vol.Schema(
+            {
+                vol.Required("action"): vol.In(["add_zone", "set_wifi", "done"]),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="setup_menu",
+            data_schema=schema,
+            description_placeholders={
+                "zones": f"Zones configured: {len(self.zones)}"
+            },
+        )
+
+    async def async_step_set_global_wifi(self, user_input=None):
+        """Set global WiFi settings."""
+        if user_input is not None:
+            self.global_wifi = {
+                "entity": user_input.get("wifi_entity"),
+                "mode": user_input.get("wifi_mode", "off"),
+            }
+            return await self.async_step_setup_menu()
+
+        schema = vol.Schema(
+            {
+                vol.Optional("wifi_entity"): EntitySelector(),
+                vol.Optional("wifi_mode", default="off"): vol.In(["on", "off"]),
+            }
+        )
+
+        return self.async_show_form(step_id="set_global_wifi", data_schema=schema)
 
     async def async_step_add_zone(self, user_input=None):
         """Add a zone."""
@@ -25,32 +72,34 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.zones = {}
 
             zone_name = user_input["zone_name"].lower().replace(" ", "_")
+            
+            automations = user_input.get("automations")
+            if isinstance(automations, str):
+                automations = [automations] if automations else []
+            
+            scripts = user_input.get("scripts")
+            if isinstance(scripts, str):
+                scripts = [scripts] if scripts else []
+            
+            entities = user_input.get("entities")
+            if isinstance(entities, str):
+                entities = [entities] if entities else []
+
             self.zones[zone_name] = {
                 "name": user_input["zone_name"],
-                "automations": user_input.get("automations", []),
-                "scripts": user_input.get("scripts", []),
-                "entities": user_input.get("entities", []),
-                "wifi_entity": user_input.get("wifi_entity"),
-                "wifi_mode": user_input.get("wifi_mode", "off"),
+                "automations": automations or [],
+                "scripts": scripts or [],
+                "entities": entities or [],
             }
 
-            if user_input.get("add_another"):
-                return await self.async_step_add_zone()
-
-            return self.async_create_entry(
-                title="Guest Mode",
-                data={"zones": self.zones},
-            )
+            return await self.async_step_setup_menu()
 
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations", default=[]): EntitySelector(),
-                vol.Optional("scripts", default=[]): EntitySelector(),
-                vol.Optional("entities", default=[]): EntitySelector(),
-                vol.Optional("wifi_entity"): EntitySelector(),
-                vol.Optional("wifi_mode", default="off"): vol.In(["on", "off"]),
-                vol.Optional("add_another", default=False): bool,
+                vol.Optional("automations"): EntitySelector(),
+                vol.Optional("scripts"): EntitySelector(),
+                vol.Optional("entities"): EntitySelector(),
             }
         )
 
@@ -64,13 +113,14 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         """Initialize."""
         self.config_entry = config_entry
         self.zones = dict(config_entry.data.get("zones", {}))
+        self.global_wifi = config_entry.data.get("global_wifi", {})
 
     async def async_step_init(self, user_input=None):
         """Options step."""
-        return await self.async_step_manage_zones()
+        return await self.async_step_manage_menu()
 
-    async def async_step_manage_zones(self, user_input=None):
-        """Manage zones."""
+    async def async_step_manage_menu(self, user_input=None):
+        """Main management menu."""
         if user_input is not None:
             action = user_input.get("action")
 
@@ -83,14 +133,16 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 zone_id = user_input.get("zone_select")
                 self.zones.pop(zone_id, None)
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry, data={"zones": self.zones}
+                    self.config_entry, data={"zones": self.zones, "global_wifi": self.global_wifi}
                 )
-                return await self.async_step_manage_zones()
-
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data={"zones": self.zones}
-            )
-            return self.async_abort(reason="reconfigure_successful")
+                return await self.async_step_manage_menu()
+            elif action == "edit_wifi":
+                return await self.async_step_edit_global_wifi()
+            elif action == "done":
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data={"zones": self.zones, "global_wifi": self.global_wifi}
+                )
+                return self.async_abort(reason="reconfigure_successful")
 
         zone_choices = {
             zone_id: zone["name"] for zone_id, zone in self.zones.items()
@@ -98,35 +150,62 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         schema = vol.Schema(
             {
-                vol.Required("action"): vol.In(["add", "edit", "delete"]),
+                vol.Required("action"): vol.In(["add", "edit", "delete", "edit_wifi", "done"]),
                 vol.Optional("zone_select"): vol.In(zone_choices),
             }
         )
 
-        return self.async_show_form(step_id="manage_zones", data_schema=schema)
+        return self.async_show_form(step_id="manage_menu", data_schema=schema)
+
+    async def async_step_edit_global_wifi(self, user_input=None):
+        """Edit global WiFi settings."""
+        if user_input is not None:
+            self.global_wifi = {
+                "entity": user_input.get("wifi_entity"),
+                "mode": user_input.get("wifi_mode", "off"),
+            }
+            return await self.async_step_manage_menu()
+
+        schema = vol.Schema(
+            {
+                vol.Optional("wifi_entity", default=self.global_wifi.get("entity")): EntitySelector(),
+                vol.Optional("wifi_mode", default=self.global_wifi.get("mode", "off")): vol.In(["on", "off"]),
+            }
+        )
+
+        return self.async_show_form(step_id="edit_global_wifi", data_schema=schema)
 
     async def async_step_add_zone(self, user_input=None):
         """Add a new zone."""
         if user_input is not None:
             zone_name = user_input["zone_name"].lower().replace(" ", "_")
+            
+            automations = user_input.get("automations")
+            if isinstance(automations, str):
+                automations = [automations] if automations else []
+            
+            scripts = user_input.get("scripts")
+            if isinstance(scripts, str):
+                scripts = [scripts] if scripts else []
+            
+            entities = user_input.get("entities")
+            if isinstance(entities, str):
+                entities = [entities] if entities else []
+
             self.zones[zone_name] = {
                 "name": user_input["zone_name"],
-                "automations": user_input.get("automations", []),
-                "scripts": user_input.get("scripts", []),
-                "entities": user_input.get("entities", []),
-                "wifi_entity": user_input.get("wifi_entity"),
-                "wifi_mode": user_input.get("wifi_mode", "off"),
+                "automations": automations or [],
+                "scripts": scripts or [],
+                "entities": entities or [],
             }
-            return await self.async_step_manage_zones()
+            return await self.async_step_manage_menu()
 
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations", default=[]): EntitySelector(),
-                vol.Optional("scripts", default=[]): EntitySelector(),
-                vol.Optional("entities", default=[]): EntitySelector(),
-                vol.Optional("wifi_entity"): EntitySelector(),
-                vol.Optional("wifi_mode", default="off"): vol.In(["on", "off"]),
+                vol.Optional("automations"): EntitySelector(),
+                vol.Optional("scripts"): EntitySelector(),
+                vol.Optional("entities"): EntitySelector(),
             }
         )
 
@@ -136,15 +215,26 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         """Edit an existing zone."""
         if user_input is not None:
             zone_id = self.zone_to_edit
+            
+            automations = user_input.get("automations")
+            if isinstance(automations, str):
+                automations = [automations] if automations else []
+            
+            scripts = user_input.get("scripts")
+            if isinstance(scripts, str):
+                scripts = [scripts] if scripts else []
+            
+            entities = user_input.get("entities")
+            if isinstance(entities, str):
+                entities = [entities] if entities else []
+
             self.zones[zone_id] = {
                 "name": user_input["zone_name"],
-                "automations": user_input.get("automations", []),
-                "scripts": user_input.get("scripts", []),
-                "entities": user_input.get("entities", []),
-                "wifi_entity": user_input.get("wifi_entity"),
-                "wifi_mode": user_input.get("wifi_mode", "off"),
+                "automations": automations or [],
+                "scripts": scripts or [],
+                "entities": entities or [],
             }
-            return await self.async_step_manage_zones()
+            return await self.async_step_manage_menu()
 
         zone = self.zones[self.zone_to_edit]
 
@@ -154,8 +244,6 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional("automations", default=zone.get("automations", [])): EntitySelector(),
                 vol.Optional("scripts", default=zone.get("scripts", [])): EntitySelector(),
                 vol.Optional("entities", default=zone.get("entities", [])): EntitySelector(),
-                vol.Optional("wifi_entity", default=zone.get("wifi_entity")): EntitySelector(),
-                vol.Optional("wifi_mode", default=zone.get("wifi_mode", "off")): vol.In(["on", "off"]),
             }
         )
 
