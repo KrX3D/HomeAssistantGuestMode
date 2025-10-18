@@ -57,6 +57,10 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_input.get("add_another"):
                 return await self.async_step_add_zone()
 
+            # If no WiFi yet, ask for it
+            if not hasattr(self, "global_wifi"):
+                self.global_wifi = {}
+            
             return await self.async_step_setup_wifi()
 
         # Get automation and script options
@@ -93,7 +97,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="add_zone", data_schema=schema)
 
     async def async_step_setup_wifi(self, user_input=None):
-        """Set up global WiFi."""
+        """Set up global WiFi settings."""
         if user_input is not None:
             self.global_wifi = {
                 "entity": user_input.get(CONF_WIFI_ENTITY),
@@ -115,7 +119,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="setup_wifi",
             data_schema=schema,
-            description_placeholders={"info": "Configure global WiFi (optional)"},
+            description_placeholders={"setup": "Configure global WiFi settings (optional). Click submit to finish."},
         )
 
     @staticmethod
