@@ -1,5 +1,28 @@
-from homeassistant import config_entries
-from homeassistant.helpers.selector import EntitySelector, DomainSelector, MultiSelectSelector
+def _get_automation_options(self):
+        """Get automation options."""
+        return [
+            {"value": entity_id, "label": entity_id}
+            for entity_id in self.hass.states.async_entity_ids("automation")
+        ]
+
+    def _get_script_options(self):
+        """Get script options."""
+        return [
+            {"value": entity_id, "label": entity_id}
+            for entity_id in self.hass.states.async_entity_ids("script")
+        ]
+
+    def _get_entity_options(self):
+        """Get all entity options."""
+        excluded_domains = ["automation", "script"]
+        all_entities = []
+        for entity_id in self.hass.states.async_entity_ids():
+            domain = entity_id.split(".")[0]
+            if domain not in excluded_domains:
+                all_entities.append({"value": entity_id, "label": entity_id})
+        return all_entitiesfrom homeassistant import config_entries
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import EntitySelector
 import voluptuous as vol
 
 DOMAIN = "guest_mode"
@@ -65,23 +88,23 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations_off", default=[]): MultiSelectSelector(
-                    {"options": self._get_automation_options()}
+                vol.Optional("automations_off", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("automations_on", default=[]): MultiSelectSelector(
-                    {"options": self._get_automation_options()}
+                vol.Optional("automations_on", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("scripts_off", default=[]): MultiSelectSelector(
-                    {"options": self._get_script_options()}
+                vol.Optional("scripts_off", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("scripts_on", default=[]): MultiSelectSelector(
-                    {"options": self._get_script_options()}
+                vol.Optional("scripts_on", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("entities_off", default=[]): MultiSelectSelector(
-                    {"options": self._get_entity_options()}
+                vol.Optional("entities_off", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("entities_on", default=[]): MultiSelectSelector(
-                    {"options": self._get_entity_options()}
+                vol.Optional("entities_on", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
             }
         )
@@ -202,23 +225,23 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations_off", default=[]): MultiSelectSelector(
-                    {"options": self._get_automation_options()}
+                vol.Optional("automations_off", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("automations_on", default=[]): MultiSelectSelector(
-                    {"options": self._get_automation_options()}
+                vol.Optional("automations_on", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("scripts_off", default=[]): MultiSelectSelector(
-                    {"options": self._get_script_options()}
+                vol.Optional("scripts_off", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("scripts_on", default=[]): MultiSelectSelector(
-                    {"options": self._get_script_options()}
+                vol.Optional("scripts_on", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("entities_off", default=[]): MultiSelectSelector(
-                    {"options": self._get_entity_options()}
+                vol.Optional("entities_off", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("entities_on", default=[]): MultiSelectSelector(
-                    {"options": self._get_entity_options()}
+                vol.Optional("entities_on", default=[]): vol.All(
+                    cv.ensure_list, [str]
                 ),
             }
         )
@@ -246,23 +269,23 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("zone_name", default=zone["name"]): str,
-                vol.Optional("automations_off", default=zone.get("automations_off", [])): MultiSelectSelector(
-                    {"options": self._get_automation_options()}
+                vol.Optional("automations_off", default=zone.get("automations_off", [])): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("automations_on", default=zone.get("automations_on", [])): MultiSelectSelector(
-                    {"options": self._get_automation_options()}
+                vol.Optional("automations_on", default=zone.get("automations_on", [])): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("scripts_off", default=zone.get("scripts_off", [])): MultiSelectSelector(
-                    {"options": self._get_script_options()}
+                vol.Optional("scripts_off", default=zone.get("scripts_off", [])): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("scripts_on", default=zone.get("scripts_on", [])): MultiSelectSelector(
-                    {"options": self._get_script_options()}
+                vol.Optional("scripts_on", default=zone.get("scripts_on", [])): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("entities_off", default=zone.get("entities_off", [])): MultiSelectSelector(
-                    {"options": self._get_entity_options()}
+                vol.Optional("entities_off", default=zone.get("entities_off", [])): vol.All(
+                    cv.ensure_list, [str]
                 ),
-                vol.Optional("entities_on", default=zone.get("entities_on", [])): MultiSelectSelector(
-                    {"options": self._get_entity_options()}
+                vol.Optional("entities_on", default=zone.get("entities_on", [])): vol.All(
+                    cv.ensure_list, [str]
                 ),
             }
         )
