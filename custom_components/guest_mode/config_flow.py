@@ -1,6 +1,6 @@
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.selector import EntitySelector, EntityFilterSelector
+from homeassistant.helpers.selector import EntitySelector
 import voluptuous as vol
 
 DOMAIN = "guest_mode"
@@ -51,14 +51,10 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations", default=[]): EntitySelector(
-                    EntityFilterSelector(domain="automation")
-                ),
-                vol.Optional("scripts", default=[]): EntitySelector(
-                    EntityFilterSelector(domain="script")
-                ),
-                vol.Optional("entities", default=[]): EntitySelector({}),
-                vol.Optional("wifi_entity"): EntitySelector({}),
+                vol.Optional("automations", default=[]): EntitySelector(),
+                vol.Optional("scripts", default=[]): EntitySelector(),
+                vol.Optional("entities", default=[]): EntitySelector(),
+                vol.Optional("wifi_entity"): EntitySelector(),
                 vol.Optional(
                     "wifi_mode", default="off"
                 ): vol.In(["on", "off"]),
@@ -146,14 +142,10 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("zone_name"): str,
-                vol.Optional("automations", default=[]): EntitySelector(
-                    EntityFilterSelector(domain="automation")
-                ),
-                vol.Optional("scripts", default=[]): EntitySelector(
-                    EntityFilterSelector(domain="script")
-                ),
-                vol.Optional("entities", default=[]): EntitySelector({}),
-                vol.Optional("wifi_entity"): EntitySelector({}),
+                vol.Optional("automations", default=[]): EntitySelector(),
+                vol.Optional("scripts", default=[]): EntitySelector(),
+                vol.Optional("entities", default=[]): EntitySelector(),
+                vol.Optional("wifi_entity"): EntitySelector(),
                 vol.Optional(
                     "wifi_mode", default="off"
                 ): vol.In(["on", "off"]),
@@ -183,16 +175,14 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 vol.Required("zone_name", default=zone["name"]): str,
                 vol.Optional(
                     "automations", default=zone.get("automations", [])
-                ): EntitySelector(EntityFilterSelector(domain="automation")),
+                ): EntitySelector(),
                 vol.Optional(
                     "scripts", default=zone.get("scripts", [])
-                ): EntitySelector(EntityFilterSelector(domain="script")),
-                vol.Optional("entities", default=zone.get("entities", [])): EntitySelector(
-                    {}
-                ),
+                ): EntitySelector(),
+                vol.Optional("entities", default=zone.get("entities", [])): EntitySelector(),
                 vol.Optional(
                     "wifi_entity", default=zone.get("wifi_entity")
-                ): EntitySelector({}),
+                ): EntitySelector(),
                 vol.Optional(
                     "wifi_mode", default=zone.get("wifi_mode", "off")
                 ): vol.In(["on", "off"]),
