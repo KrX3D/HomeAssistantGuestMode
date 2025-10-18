@@ -4,6 +4,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import selector
+from homeassistant.helpers.entity_registry import async_get as entity_registry_async_get
 
 from .const import DOMAIN
 
@@ -26,26 +27,16 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Initial step - Set up global WiFi."""
+        """Initial step - proceed to add first zone."""
         if user_input is not None:
-            self.global_wifi = {
-                "entity": user_input.get(CONF_WIFI_ENTITY),
-                "mode": user_input.get(CONF_WIFI_MODE, "off"),
-            }
+            self.global_wifi = {}
             self.zones = {}
             return await self.async_step_add_zone()
 
-        schema = vol.Schema(
-            {
-                vol.Optional(CONF_WIFI_ENTITY): selector.EntitySelector(),
-                vol.Optional(CONF_WIFI_MODE, default="off"): vol.In(["on", "off"]),
-            }
-        )
-
         return self.async_show_form(
             step_id="user",
-            data_schema=schema,
-            description_placeholders={"info": "Set up global WiFi (optional)"},
+            data_schema=vol.Schema({}),
+            description_placeholders={"info": "Click submit to add your first zone"},
         )
 
     async def async_step_add_zone(self, user_input=None):
@@ -66,10 +57,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_input.get("add_another"):
                 return await self.async_step_add_zone()
 
-            return self.async_create_entry(
-                title="Guest Mode",
-                data={"zones": self.zones, "global_wifi": self.global_wifi},
-            )
+            return self.async_step_setup_wifi()
 
         # Get automation and script options
         all_automations = sorted(self.hass.states.async_entity_ids("automation"))
@@ -104,6 +92,32 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="add_zone", data_schema=schema)
 
+    async def async_step_setup_wifi(self, user_input=None):
+        """Set up global WiFi."""
+        if user_input is not None:
+            self.global_wifi = {
+                "entity": user_input.get(CONF_WIFI_ENTITY),
+                "mode": user_input.get(CONF_WIFI_MODE, "off"),
+            }
+            
+            return self.async_create_entry(
+                title="Guest Mode",
+                data={"zones": self.zones, "global_wifi": self.global_wifi},
+            )
+
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_WIFI_ENTITY): selector.EntitySelector(),
+                vol.Optional(CONF_WIFI_MODE, default="off"): vol.In(["on", "off"]),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="setup_wifi",
+            data_schema=schema,
+            description_placeholders={"info": "Configure global WiFi (optional)"},
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
@@ -116,7 +130,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
         self.zones = dict(config_entry.data.get("zones", {}))
         self.global_wifi = config_entry.data.get("global_wifi", {})
 
@@ -132,21 +146,25 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             if action == "add":
                 return await self.async_step_add_zone()
             elif action == "edit":
-                self.zone_to_edit = user_input.get("zone_select")
-                return await self.async_step_edit_zone()
+                zone_id = user_input.get("zone_select")
+                if zone_id:
+                    self.zone_to_edit = zone_id
+                    return await self.async_step_edit_zone()
             elif action == "delete":
                 zone_id = user_input.get("zone_select")
-                self.zones.pop(zone_id, None)
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry,
-                    data={"zones": self.zones, "global_wifi": self.global_wifi},
-                )
+                if zone_id:
+                    await self._delete_zone(zone_id)
+                    self.zones.pop(zone_id, None)
+                    self.hass.config_entries.async_update_entry(
+                        self._config_entry,
+                        data={"zones": self.zones, "global_wifi": self.global_wifi},
+                    )
                 return await self.async_step_manage_menu()
             elif action == "edit_wifi":
                 return await self.async_step_edit_global_wifi()
             elif action == "done":
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry,
+                    self._config_entry,
                     data={"zones": self.zones, "global_wifi": self.global_wifi},
                 )
                 return self.async_abort(reason="reconfigure_successful")
@@ -155,12 +173,18 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             zone_id: zone["name"] for zone_id, zone in self.zones.items()
         }
 
-        schema = vol.Schema(
-            {
-                vol.Required("action"): vol.In(["add", "edit", "delete", "edit_wifi", "done"]),
-                vol.Optional("zone_select"): vol.In(zone_choices) if zone_choices else cv.string,
-            }
-        )
+        # Build schema based on available zones
+        schema_dict = {}
+        
+        if self.zones:
+            actions = ["add", "edit", "delete", "edit_wifi", "done"]
+            schema_dict[vol.Required("action")] = vol.In(actions)
+            schema_dict[vol.Optional("zone_select")] = vol.In(zone_choices)
+        else:
+            actions = ["add", "edit_wifi", "done"]
+            schema_dict[vol.Required("action")] = vol.In(actions)
+
+        schema = vol.Schema(schema_dict)
 
         return self.async_show_form(step_id="manage_menu", data_schema=schema)
 
@@ -200,6 +224,10 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
                 CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
             }
+            self.hass.config_entries.async_update_entry(
+                self._config_entry,
+                data={"zones": self.zones, "global_wifi": self.global_wifi},
+            )
             return await self.async_step_manage_menu()
 
         all_automations = sorted(self.hass.states.async_entity_ids("automation"))
@@ -247,6 +275,10 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
                 CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
             }
+            self.hass.config_entries.async_update_entry(
+                self._config_entry,
+                data={"zones": self.zones, "global_wifi": self.global_wifi},
+            )
             return await self.async_step_manage_menu()
 
         zone = self.zones[self.zone_to_edit]
@@ -281,3 +313,26 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         )
 
         return self.async_show_form(step_id="edit_zone", data_schema=schema)
+
+    async def _delete_zone(self, zone_id):
+        """Delete zone and its associated entities."""
+        try:
+            entity_registry = entity_registry_async_get(self.hass)
+            
+            # Remove the zone switch entity
+            zone_switch_id = f"switch.guest_mode_zone_{zone_id}"
+            
+            # Find and remove from entity registry
+            for entity_id, entity in list(entity_registry.entities.items()):
+                if entity_id == zone_switch_id:
+                    _LOGGER.debug(f"Removing entity from registry: {entity_id}")
+                    entity_registry.async_remove(entity_id)
+                    break
+            
+            # Also remove the state
+            if self.hass.states.get(zone_switch_id):
+                self.hass.states.async_remove(zone_switch_id)
+                _LOGGER.debug(f"Removed state: {zone_switch_id}")
+                
+        except Exception as e:
+            _LOGGER.error(f"Error deleting zone entities: {e}")
