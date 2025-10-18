@@ -1,5 +1,5 @@
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.helpers.selector import EntitySelector
 import voluptuous as vol
 
@@ -11,25 +11,20 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    def __init__(self):
-        """Initialize."""
-        self.zones: dict[str, Any] = {}
-
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(self, user_input=None):
         """Initial step."""
         if user_input is not None:
             self.zones = {}
             return await self.async_step_add_zone()
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({}),
-            description_placeholders={"setup": "Click submit to add your first zone"},
-        )
+        return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
 
-    async def async_step_add_zone(self, user_input: dict[str, Any] | None = None):
+    async def async_step_add_zone(self, user_input=None):
         """Add a zone."""
         if user_input is not None:
+            if not hasattr(self, "zones"):
+                self.zones = {}
+
             zone_name = user_input["zone_name"].lower().replace(" ", "_")
             self.zones[zone_name] = {
                 "name": user_input["zone_name"],
@@ -55,9 +50,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional("scripts", default=[]): EntitySelector(),
                 vol.Optional("entities", default=[]): EntitySelector(),
                 vol.Optional("wifi_entity"): EntitySelector(),
-                vol.Optional(
-                    "wifi_mode", default="off"
-                ): vol.In(["on", "off"]),
+                vol.Optional("wifi_mode", default="off"): vol.In(["on", "off"]),
                 vol.Optional("add_another", default=False): bool,
             }
         )
@@ -79,11 +72,11 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         self.config_entry = config_entry
         self.zones = dict(config_entry.data.get("zones", {}))
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+    async def async_step_init(self, user_input=None):
         """Options step."""
         return await self.async_step_manage_zones()
 
-    async def async_step_manage_zones(self, user_input: dict[str, Any] | None = None):
+    async def async_step_manage_zones(self, user_input=None):
         """Manage zones."""
         if user_input is not None:
             action = user_input.get("action")
@@ -117,15 +110,9 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             }
         )
 
-        return self.async_show_form(
-            step_id="manage_zones",
-            data_schema=schema,
-            description_placeholders={
-                "zones": f"Configured zones: {', '.join(zone_choices.values()) if zone_choices else 'None'}"
-            },
-        )
+        return self.async_show_form(step_id="manage_zones", data_schema=schema)
 
-    async def async_step_add_zone(self, user_input: dict[str, Any] | None = None):
+    async def async_step_add_zone(self, user_input=None):
         """Add a new zone."""
         if user_input is not None:
             zone_name = user_input["zone_name"].lower().replace(" ", "_")
@@ -146,15 +133,13 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional("scripts", default=[]): EntitySelector(),
                 vol.Optional("entities", default=[]): EntitySelector(),
                 vol.Optional("wifi_entity"): EntitySelector(),
-                vol.Optional(
-                    "wifi_mode", default="off"
-                ): vol.In(["on", "off"]),
+                vol.Optional("wifi_mode", default="off"): vol.In(["on", "off"]),
             }
         )
 
         return self.async_show_form(step_id="add_zone", data_schema=schema)
 
-    async def async_step_edit_zone(self, user_input: dict[str, Any] | None = None):
+    async def async_step_edit_zone(self, user_input=None):
         """Edit an existing zone."""
         if user_input is not None:
             zone_id = self.zone_to_edit
@@ -173,19 +158,11 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required("zone_name", default=zone["name"]): str,
-                vol.Optional(
-                    "automations", default=zone.get("automations", [])
-                ): EntitySelector(),
-                vol.Optional(
-                    "scripts", default=zone.get("scripts", [])
-                ): EntitySelector(),
+                vol.Optional("automations", default=zone.get("automations", [])): EntitySelector(),
+                vol.Optional("scripts", default=zone.get("scripts", [])): EntitySelector(),
                 vol.Optional("entities", default=zone.get("entities", [])): EntitySelector(),
-                vol.Optional(
-                    "wifi_entity", default=zone.get("wifi_entity")
-                ): EntitySelector(),
-                vol.Optional(
-                    "wifi_mode", default=zone.get("wifi_mode", "off")
-                ): vol.In(["on", "off"]),
+                vol.Optional("wifi_entity", default=zone.get("wifi_entity")): EntitySelector(),
+                vol.Optional("wifi_mode", default=zone.get("wifi_mode", "off")): vol.In(["on", "off"]),
             }
         )
 
