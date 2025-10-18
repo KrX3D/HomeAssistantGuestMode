@@ -1,5 +1,4 @@
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.helpers.selector import EntitySelector
 import voluptuous as vol
 
@@ -56,12 +55,6 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(step_id="add_zone", data_schema=schema)
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        """Get the options flow."""
-        return GuestModeOptionsFlow(config_entry)
 
 
 class GuestModeOptionsFlow(config_entries.OptionsFlow):
