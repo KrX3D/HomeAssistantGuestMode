@@ -61,7 +61,7 @@ class MainGuestModeSwitch(SwitchEntity, RestoreEntity):
         self._is_on = True
         zones = self.entry.data.get("zones", {})
         for zone_id in zones:
-            entity_id = f"switch.guest_mode_zone_{zone_id}"
+            entity_id = f"switch.guest_mode_{zone_id}"
             await self.hass.services.async_call(
                 "homeassistant",
                 "turn_on",
@@ -74,7 +74,7 @@ class MainGuestModeSwitch(SwitchEntity, RestoreEntity):
         self._is_on = False
         zones = self.entry.data.get("zones", {})
         for zone_id in zones:
-            entity_id = f"switch.guest_mode_zone_{zone_id}"
+            entity_id = f"switch.guest_mode_{zone_id}"
             await self.hass.services.async_call(
                 "homeassistant",
                 "turn_off",

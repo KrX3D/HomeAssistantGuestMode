@@ -47,10 +47,12 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_add_zone(self, user_input=None):
         """Add a zone."""
         if user_input is not None:
-            zone_name = user_input[CONF_ZONE_NAME].lower().replace(" ", "_")
+            zone_name = user_input.get(CONF_ZONE_NAME, "").lower().replace(" ", "_")
+            if not zone_name:
+                return await self.async_step_add_zone()
 
             self.zones[zone_name] = {
-                "name": user_input[CONF_ZONE_NAME],
+                "name": user_input.get(CONF_ZONE_NAME, ""),
                 CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
                 CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
                 CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
@@ -79,22 +81,22 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_ZONE_NAME): cv.string,
                 vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
                     cv.multi_select(all_automations)
-                ),
+                ) if all_automations else cv.string,
                 vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
                     cv.multi_select(all_automations)
-                ),
+                ) if all_automations else cv.string,
                 vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
                     cv.multi_select(all_scripts)
-                ),
+                ) if all_scripts else cv.string,
                 vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
                     cv.multi_select(all_scripts)
-                ),
+                ) if all_scripts else cv.string,
                 vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
                     cv.multi_select(all_entities)
-                ),
+                ) if all_entities else cv.string,
                 vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
                     cv.multi_select(all_entities)
-                ),
+                ) if all_entities else cv.string,
                 vol.Optional("add_another", default=False): cv.boolean,
             }
         )
