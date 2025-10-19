@@ -191,13 +191,7 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
             wifi_entity = global_wifi["entity"]
             wifi_mode = global_wifi.get("mode", "off")
             
-            # Save current WiFi state if not already saved
-            if wifi_entity not in data["saved_states"][self.zone_id]:
-                wifi_state = self.hass.states.get(wifi_entity)
-                if wifi_state:
-                    data["saved_states"][self.zone_id][wifi_entity] = wifi_state.state
-            
-            # Set WiFi to desired state during guest mode
+            # When guest mode ON: set WiFi to the configured mode
             service = "turn_on" if wifi_mode == "on" else "turn_off"
             await self.hass.services.async_call(
                 "homeassistant", service, {"entity_id": wifi_entity}
