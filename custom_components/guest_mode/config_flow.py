@@ -27,16 +27,21 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Initial step - proceed to add first zone."""
+        """Initial step - setup menu."""
         if user_input is not None:
-            self.global_wifi = {}
-            self.zones = {}
-            return await self.async_step_add_zone()
+            action = user_input.get("action")
+            
+            if action == "setup":
+                self.global_wifi = {}
+                self.zones = {}
+                return await self.async_step_add_zone()
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({}),
-            description_placeholders={"info": "Click submit to add your first zone"},
+            data_schema=vol.Schema({
+                vol.Required("action"): vol.In(["setup"])
+            }),
+            description_placeholders={"info": "Click submit to set up Guest Mode"},
         )
 
     async def async_step_add_zone(self, user_input=None):
@@ -154,6 +159,9 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 if zone_id:
                     self.zone_to_edit = zone_id
                     return await self.async_step_edit_zone()
+                else:
+                    # Re-show menu if no zone selected
+                    return await self.async_step_manage_menu()
             elif action == "delete":
                 zone_id = user_input.get("zone_select")
                 if zone_id:
@@ -183,7 +191,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         if self.zones:
             actions = ["add", "edit", "delete", "edit_wifi", "done"]
             schema_dict[vol.Required("action")] = vol.In(actions)
-            schema_dict[vol.Optional("zone_select")] = vol.In(zone_choices)
+            schema_dict[vol.Required("zone_select")] = vol.In(zone_choices)
         else:
             actions = ["add", "edit_wifi", "done"]
             schema_dict[vol.Required("action")] = vol.In(actions)

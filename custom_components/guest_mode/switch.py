@@ -144,38 +144,42 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         )
 
         # Save current states
-        for entity_id in all_entities:
+        for entity_id in all_entities_to_manage:
             state = self.hass.states.get(entity_id)
             if state:
                 data["saved_states"][self.zone_id][entity_id] = state.state
 
-        # Turn OFF entities
+        # Turn OFF automations
         for entity_id in self.zone_data.get("automations_off", []):
             await self.hass.services.async_call(
                 "automation", "turn_off", {"entity_id": entity_id}
             )
 
+        # Turn OFF scripts
         for entity_id in self.zone_data.get("scripts_off", []):
             await self.hass.services.async_call(
                 "script", "turn_off", {"entity_id": entity_id}
             )
 
+        # Turn OFF entities
         for entity_id in self.zone_data.get("entities_off", []):
             await self.hass.services.async_call(
                 "homeassistant", "turn_off", {"entity_id": entity_id}
             )
 
-        # Turn ON entities
+        # Turn ON automations
         for entity_id in self.zone_data.get("automations_on", []):
             await self.hass.services.async_call(
                 "automation", "turn_on", {"entity_id": entity_id}
             )
 
+        # Turn ON scripts
         for entity_id in self.zone_data.get("scripts_on", []):
             await self.hass.services.async_call(
                 "script", "turn_on", {"entity_id": entity_id}
             )
 
+        # Turn ON entities
         for entity_id in self.zone_data.get("entities_on", []):
             await self.hass.services.async_call(
                 "homeassistant", "turn_on", {"entity_id": entity_id}
