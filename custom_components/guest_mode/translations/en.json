@@ -82,6 +82,7 @@
     "action": {
       "options": {
         "setup": "Set up first zone",
+        "setup_wifi": "Set up WiFi",
         "add": "Add zone",
         "edit": "Edit zone",
         "delete": "Delete zone",
