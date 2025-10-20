@@ -87,50 +87,28 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Return to main menu after adding zone
             return await self.async_step_user()
 
-        # Build available entity lists for selectors
-        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
-        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
-        all_entities = sorted(
-            [
-                e
-                for e in self.hass.states.async_entity_ids()
-                if not e.startswith("automation.") and not e.startswith("script.")
-            ]
-        )
-
+        # Use selectors (client-side) instead of building large option lists server-side
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME): cv.string,
-                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_automations)
-                )
-                if all_automations
-                else cv.string,
-                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
-                    cv.multi_select(all_automations)
-                )
-                if all_automations
-                else cv.string,
-                vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
-                )
-                if all_scripts
-                else cv.string,
-                vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
-                )
-                if all_scripts
-                else cv.string,
-                vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
-                    cv.multi_select(all_entities)
-                )
-                if all_entities
-                else cv.string,
-                vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
-                    cv.multi_select(all_entities)
-                )
-                if all_entities
-                else cv.string,
+                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): selector.EntitySelector(
+                    selector={"domain": "automation", "multiple": True}
+                ),
+                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): selector.EntitySelector(
+                    selector={"domain": "automation", "multiple": True}
+                ),
+                vol.Optional(CONF_SCRIPTS_OFF, default=[]): selector.EntitySelector(
+                    selector={"domain": "script", "multiple": True}
+                ),
+                vol.Optional(CONF_SCRIPTS_ON, default=[]): selector.EntitySelector(
+                    selector={"domain": "script", "multiple": True}
+                ),
+                vol.Optional(CONF_ENTITIES_OFF, default=[]): selector.EntitySelector(
+                    selector={"multiple": True}
+                ),
+                vol.Optional(CONF_ENTITIES_ON, default=[]): selector.EntitySelector(
+                    selector={"multiple": True}
+                ),
                 vol.Optional("add_another", default=False): cv.boolean,
             }
         )
@@ -277,36 +255,27 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             )
             return await self.async_step_manage_menu()
 
-        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
-        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
-        all_entities = sorted(
-            [
-                e
-                for e in self.hass.states.async_entity_ids()
-                if not e.startswith("automation.") and not e.startswith("script.")
-            ]
-        )
-
+        # Use selectors for options (fast client-side)
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME): cv.string,
-                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_automations)
+                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): selector.EntitySelector(
+                    selector={"domain": "automation", "multiple": True}
                 ),
-                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
-                    cv.multi_select(all_automations)
+                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): selector.EntitySelector(
+                    selector={"domain": "automation", "multiple": True}
                 ),
-                vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
+                vol.Optional(CONF_SCRIPTS_OFF, default=[]): selector.EntitySelector(
+                    selector={"domain": "script", "multiple": True}
                 ),
-                vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
+                vol.Optional(CONF_SCRIPTS_ON, default=[]): selector.EntitySelector(
+                    selector={"domain": "script", "multiple": True}
                 ),
-                vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
-                    cv.multi_select(all_entities)
+                vol.Optional(CONF_ENTITIES_OFF, default=[]): selector.EntitySelector(
+                    selector={"multiple": True}
                 ),
-                vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
-                    cv.multi_select(all_entities)
+                vol.Optional(CONF_ENTITIES_ON, default=[]): selector.EntitySelector(
+                    selector={"multiple": True}
                 ),
             }
         )
@@ -335,37 +304,27 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         zone = self.zones[self.zone_to_edit]
 
-        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
-        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
-        all_entities = sorted(
-            [
-                e
-                for e in self.hass.states.async_entity_ids()
-                if not e.startswith("automation.") and not e.startswith("script.")
-            ]
-        )
-
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME, default=zone["name"]): cv.string,
                 vol.Optional(
                     CONF_AUTOMATIONS_OFF, default=zone.get(CONF_AUTOMATIONS_OFF, [])
-                ): vol.All(cv.multi_select(all_automations)),
+                ): selector.EntitySelector(selector={"domain": "automation", "multiple": True}),
                 vol.Optional(
                     CONF_AUTOMATIONS_ON, default=zone.get(CONF_AUTOMATIONS_ON, [])
-                ): vol.All(cv.multi_select(all_automations)),
+                ): selector.EntitySelector(selector={"domain": "automation", "multiple": True}),
                 vol.Optional(
                     CONF_SCRIPTS_OFF, default=zone.get(CONF_SCRIPTS_OFF, [])
-                ): vol.All(cv.multi_select(all_scripts)),
+                ): selector.EntitySelector(selector={"domain": "script", "multiple": True}),
                 vol.Optional(
                     CONF_SCRIPTS_ON, default=zone.get(CONF_SCRIPTS_ON, [])
-                ): vol.All(cv.multi_select(all_scripts)),
+                ): selector.EntitySelector(selector={"domain": "script", "multiple": True}),
                 vol.Optional(
                     CONF_ENTITIES_OFF, default=zone.get(CONF_ENTITIES_OFF, [])
-                ): vol.All(cv.multi_select(all_entities)),
+                ): selector.EntitySelector(selector={"multiple": True}),
                 vol.Optional(
                     CONF_ENTITIES_ON, default=zone.get(CONF_ENTITIES_ON, [])
-                ): vol.All(cv.multi_select(all_entities)),
+                ): selector.EntitySelector(selector={"multiple": True}),
             }
         )
 
@@ -383,20 +342,14 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             for entity_id, entity in list(entity_registry.entities.items()):
                 if entity_id == zone_switch_id:
                     _LOGGER.debug(f"Removing entity from registry: {entity_id}")
-                    # async_remove is a coroutine on the registry but calling without await is used in some contexts;
-                    # call it and don't block here (Home Assistant will handle).
                     try:
-                        # If it's coroutine, schedule it
                         removal = entity_registry.async_remove(entity_id)
                         if removal is not None:
-                            # If it returned a coroutine, schedule it
                             try:
-                                # Python 3.8+ safe schedule
                                 self.hass.async_create_task(removal)
                             except Exception:
                                 pass
                     except Exception:
-                        # Fallback: try synchronous call
                         try:
                             entity_registry.async_remove(entity_id)
                         except Exception as exc:
