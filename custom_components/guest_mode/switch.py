@@ -202,9 +202,9 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable guest mode for zone."""
         self._is_on = False
+        
+        # Restore automations and scripts to their previous states
         data = self.hass.data[DOMAIN][self.entry.entry_id]
-
-        # Restore states
         if self.zone_id in data["saved_states"]:
             states = data["saved_states"][self.zone_id]
             for entity_id, state in states.items():
@@ -213,6 +213,18 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
                     "homeassistant", service, {"entity_id": entity_id}
                 )
             del data["saved_states"][self.zone_id]
+        
+        # Handle global WiFi - switch to opposite of configured mode
+        global_wifi = self.entry.data.get("global_wifi", {})
+        if global_wifi.get("entity"):
+            wifi_entity = global_wifi["entity"]
+            wifi_mode = global_wifi.get("mode", "off")
+            
+            # When guest mode OFF: set WiFi to opposite of configured mode
+            service = "turn_off" if wifi_mode == "on" else "turn_on"
+            await self.hass.services.async_call(
+                "homeassistant", service, {"entity_id": wifi_entity}
+            )
 
         self.async_write_ha_state()
 
