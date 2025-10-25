@@ -209,7 +209,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                     # Reload to remove the switch entity
                     await self.hass.config_entries.async_reload(self._config_entry.entry_id)
                 return await self.async_step_manage_menu()
-            elif action == "edit_wifi":
+            elif action == "edit_wifi" or action == "setup_wifi":
                 return await self.async_step_edit_global_wifi()
             elif action == "done":
                 self.hass.config_entries.async_update_entry(
@@ -226,11 +226,17 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         schema_dict = {}
 
         if self.zones:
-            actions = ["add", "edit", "delete", "edit_wifi", "done"]
+            # Check if WiFi is configured
+            wifi_configured = bool(self.global_wifi and self.global_wifi.get("entity"))
+            wifi_action = "edit_wifi" if wifi_configured else "setup_wifi"
+            actions = ["add", "edit", "delete", wifi_action, "done"]
             schema_dict[vol.Required("action")] = vol.In(actions)
             schema_dict[vol.Required("zone_select")] = vol.In(zone_choices)
         else:
-            actions = ["add", "edit_wifi", "done"]
+            # Check if WiFi is configured
+            wifi_configured = bool(self.global_wifi and self.global_wifi.get("entity"))
+            wifi_action = "edit_wifi" if wifi_configured else "setup_wifi"
+            actions = ["add", wifi_action, "done"]
             schema_dict[vol.Required("action")] = vol.In(actions)
 
         schema = vol.Schema(schema_dict)

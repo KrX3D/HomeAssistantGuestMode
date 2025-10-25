@@ -40,6 +40,9 @@
         "data": {
           "action": "Action",
           "zone_select": "Select Zone"
+        },
+        "data_description": {
+          "action": "Zones configured: {zones_count}"
         }
       },
       "add_zone": {
@@ -76,10 +79,10 @@
           "wifi_mode": "WiFi Mode when Guest Mode is ON"
         }
       }
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration updated successfully!"
     }
-  },
-  "abort": {
-    "reconfigure_successful": "Guest Mode has been updated successfully!"
   },
   "selector": {
     "action": {
