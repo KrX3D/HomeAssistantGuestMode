@@ -78,6 +78,9 @@
       }
     }
   },
+  "abort": {
+    "reconfigure_successful": "Guest Mode has been updated successfully!"
+  },
   "selector": {
     "action": {
       "options": {
