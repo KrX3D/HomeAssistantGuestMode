@@ -87,49 +87,58 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Return to main menu after adding zone
             return await self.async_step_user()
 
-        # Build available entity lists for selectors
-        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
-        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
-        all_entities = sorted(
-            [
-                e
-                for e in self.hass.states.async_entity_ids()
-                if not e.startswith("automation.") and not e.startswith("script.")
-            ]
-        )
+        # Build available entity lists with friendly names (cached for efficiency)
+        automation_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
+            state = self.hass.states.get(entity_id)
+            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+            automation_options[entity_id] = friendly_name
+
+        script_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids("script")):
+            state = self.hass.states.get(entity_id)
+            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+            script_options[entity_id] = friendly_name
+
+        entity_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids()):
+            if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
+                state = self.hass.states.get(entity_id)
+                friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+                entity_options[entity_id] = friendly_name
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME): cv.string,
                 vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_automations)
+                    cv.multi_select(automation_options)
                 )
-                if all_automations
+                if automation_options
                 else cv.string,
                 vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
-                    cv.multi_select(all_automations)
+                    cv.multi_select(automation_options)
                 )
-                if all_automations
+                if automation_options
                 else cv.string,
                 vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
+                    cv.multi_select(script_options)
                 )
-                if all_scripts
+                if script_options
                 else cv.string,
                 vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
+                    cv.multi_select(script_options)
                 )
-                if all_scripts
+                if script_options
                 else cv.string,
                 vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
-                    cv.multi_select(all_entities)
+                    cv.multi_select(entity_options)
                 )
-                if all_entities
+                if entity_options
                 else cv.string,
                 vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
-                    cv.multi_select(all_entities)
+                    cv.multi_select(entity_options)
                 )
-                if all_entities
+                if entity_options
                 else cv.string,
                 vol.Optional("add_another", default=False): cv.boolean,
             }
@@ -287,36 +296,46 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             await self.hass.config_entries.async_reload(self._config_entry.entry_id)
             return await self.async_step_manage_menu()
 
-        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
-        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
-        all_entities = sorted(
-            [
-                e
-                for e in self.hass.states.async_entity_ids()
-                if not e.startswith("automation.") and not e.startswith("script.")
-            ]
-        )
+        # Build entity options with friendly names
+        automation_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
+            state = self.hass.states.get(entity_id)
+            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+            automation_options[entity_id] = friendly_name
+
+        script_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids("script")):
+            state = self.hass.states.get(entity_id)
+            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+            script_options[entity_id] = friendly_name
+
+        entity_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids()):
+            if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
+                state = self.hass.states.get(entity_id)
+                friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+                entity_options[entity_id] = friendly_name
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME): cv.string,
                 vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_automations)
+                    cv.multi_select(automation_options)
                 ),
                 vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
-                    cv.multi_select(all_automations)
+                    cv.multi_select(automation_options)
                 ),
                 vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
+                    cv.multi_select(script_options)
                 ),
                 vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
-                    cv.multi_select(all_scripts)
+                    cv.multi_select(script_options)
                 ),
                 vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
-                    cv.multi_select(all_entities)
+                    cv.multi_select(entity_options)
                 ),
                 vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
-                    cv.multi_select(all_entities)
+                    cv.multi_select(entity_options)
                 ),
             }
         )

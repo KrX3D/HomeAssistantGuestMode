@@ -40,9 +40,6 @@
         "data": {
           "action": "Action",
           "zone_select": "Select Zone"
-        },
-        "data_description": {
-          "action": "Zones configured: {zones_count}"
         }
       },
       "add_zone": {
