@@ -92,20 +92,20 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
             state = self.hass.states.get(entity_id)
             friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            automation_options[entity_id] = friendly_name
+            automation_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         script_options = {}
         for entity_id in sorted(self.hass.states.async_entity_ids("script")):
             state = self.hass.states.get(entity_id)
             friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            script_options[entity_id] = friendly_name
+            script_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         entity_options = {}
         for entity_id in sorted(self.hass.states.async_entity_ids()):
             if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
                 state = self.hass.states.get(entity_id)
                 friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-                entity_options[entity_id] = friendly_name
+                entity_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         schema = vol.Schema(
             {
@@ -301,20 +301,20 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
             state = self.hass.states.get(entity_id)
             friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            automation_options[entity_id] = friendly_name
+            automation_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         script_options = {}
         for entity_id in sorted(self.hass.states.async_entity_ids("script")):
             state = self.hass.states.get(entity_id)
             friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            script_options[entity_id] = friendly_name
+            script_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         entity_options = {}
         for entity_id in sorted(self.hass.states.async_entity_ids()):
             if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
                 state = self.hass.states.get(entity_id)
                 friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-                entity_options[entity_id] = friendly_name
+                entity_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         schema = vol.Schema(
             {
@@ -366,37 +366,47 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         zone = self.zones[self.zone_to_edit]
 
-        all_automations = sorted(self.hass.states.async_entity_ids("automation"))
-        all_scripts = sorted(self.hass.states.async_entity_ids("script"))
-        all_entities = sorted(
-            [
-                e
-                for e in self.hass.states.async_entity_ids()
-                if not e.startswith("automation.") and not e.startswith("script.")
-            ]
-        )
+        # Build entity options with friendly names
+        automation_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
+            state = self.hass.states.get(entity_id)
+            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+            automation_options[entity_id] = f"{friendly_name} ({entity_id})"
+
+        script_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids("script")):
+            state = self.hass.states.get(entity_id)
+            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+            script_options[entity_id] = f"{friendly_name} ({entity_id})"
+
+        entity_options = {}
+        for entity_id in sorted(self.hass.states.async_entity_ids()):
+            if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
+                state = self.hass.states.get(entity_id)
+                friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
+                entity_options[entity_id] = f"{friendly_name} ({entity_id})"
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME, default=zone["name"]): cv.string,
                 vol.Optional(
                     CONF_AUTOMATIONS_OFF, default=zone.get(CONF_AUTOMATIONS_OFF, [])
-                ): vol.All(cv.multi_select(all_automations)),
+                ): vol.All(cv.multi_select(automation_options)),
                 vol.Optional(
                     CONF_AUTOMATIONS_ON, default=zone.get(CONF_AUTOMATIONS_ON, [])
-                ): vol.All(cv.multi_select(all_automations)),
+                ): vol.All(cv.multi_select(automation_options)),
                 vol.Optional(
                     CONF_SCRIPTS_OFF, default=zone.get(CONF_SCRIPTS_OFF, [])
-                ): vol.All(cv.multi_select(all_scripts)),
+                ): vol.All(cv.multi_select(script_options)),
                 vol.Optional(
                     CONF_SCRIPTS_ON, default=zone.get(CONF_SCRIPTS_ON, [])
-                ): vol.All(cv.multi_select(all_scripts)),
+                ): vol.All(cv.multi_select(script_options)),
                 vol.Optional(
                     CONF_ENTITIES_OFF, default=zone.get(CONF_ENTITIES_OFF, [])
-                ): vol.All(cv.multi_select(all_entities)),
+                ): vol.All(cv.multi_select(entity_options)),
                 vol.Optional(
                     CONF_ENTITIES_ON, default=zone.get(CONF_ENTITIES_ON, [])
-                ): vol.All(cv.multi_select(all_entities)),
+                ): vol.All(cv.multi_select(entity_options)),
             }
         )
 
