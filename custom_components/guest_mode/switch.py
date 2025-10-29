@@ -133,14 +133,31 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         data = self.hass.data[DOMAIN][self.entry.entry_id]
         data["saved_states"][self.zone_id] = {}
 
-        # Collect all entities to manage
+        # Validate and clean up non-existent entities
+        all_automations_off = [e for e in self.zone_data.get("automations_off", []) if self.hass.states.get(e)]
+        all_automations_on = [e for e in self.zone_data.get("automations_on", []) if self.hass.states.get(e)]
+        all_scripts_off = [e for e in self.zone_data.get("scripts_off", []) if self.hass.states.get(e)]
+        all_scripts_on = [e for e in self.zone_data.get("scripts_on", []) if self.hass.states.get(e)]
+        all_entities_off = [e for e in self.zone_data.get("entities_off", []) if self.hass.states.get(e)]
+        all_entities_on = [e for e in self.zone_data.get("entities_on", []) if self.hass.states.get(e)]
+
+        # Log if any entities were removed
+        removed_count = (
+            len(self.zone_data.get("automations_off", [])) - len(all_automations_off) +
+            len(self.zone_data.get("automations_on", [])) - len(all_automations_on) +
+            len(self.zone_data.get("scripts_off", [])) - len(all_scripts_off) +
+            len(self.zone_data.get("scripts_on", [])) - len(all_scripts_on) +
+            len(self.zone_data.get("entities_off", [])) - len(all_entities_off) +
+            len(self.zone_data.get("entities_on", [])) - len(all_entities_on)
+        )
+        if removed_count > 0:
+            _LOGGER.warning(f"Zone '{self.zone_data['name']}': {removed_count} configured entities no longer exist and were skipped")
+
+        # Collect all valid entities to manage
         all_entities_to_manage = (
-            self.zone_data.get("automations_off", [])
-            + self.zone_data.get("automations_on", [])
-            + self.zone_data.get("scripts_off", [])
-            + self.zone_data.get("scripts_on", [])
-            + self.zone_data.get("entities_off", [])
-            + self.zone_data.get("entities_on", [])
+            all_automations_off + all_automations_on +
+            all_scripts_off + all_scripts_on +
+            all_entities_off + all_entities_on
         )
 
         # Save current states
@@ -150,37 +167,37 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
                 data["saved_states"][self.zone_id][entity_id] = state.state
 
         # Turn OFF automations
-        for entity_id in self.zone_data.get("automations_off", []):
+        for entity_id in all_automations_off:
             await self.hass.services.async_call(
                 "automation", "turn_off", {"entity_id": entity_id}
             )
 
         # Turn OFF scripts
-        for entity_id in self.zone_data.get("scripts_off", []):
+        for entity_id in all_scripts_off:
             await self.hass.services.async_call(
                 "script", "turn_off", {"entity_id": entity_id}
             )
 
         # Turn OFF entities
-        for entity_id in self.zone_data.get("entities_off", []):
+        for entity_id in all_entities_off:
             await self.hass.services.async_call(
                 "homeassistant", "turn_off", {"entity_id": entity_id}
             )
 
         # Turn ON automations
-        for entity_id in self.zone_data.get("automations_on", []):
+        for entity_id in all_automations_on:
             await self.hass.services.async_call(
                 "automation", "turn_on", {"entity_id": entity_id}
             )
 
         # Turn ON scripts
-        for entity_id in self.zone_data.get("scripts_on", []):
+        for entity_id in all_scripts_on:
             await self.hass.services.async_call(
                 "script", "turn_on", {"entity_id": entity_id}
             )
 
         # Turn ON entities
-        for entity_id in self.zone_data.get("entities_on", []):
+        for entity_id in all_entities_on:
             await self.hass.services.async_call(
                 "homeassistant", "turn_on", {"entity_id": entity_id}
             )
@@ -189,13 +206,16 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         global_wifi = self.entry.data.get("global_wifi", {})
         if global_wifi.get("entity"):
             wifi_entity = global_wifi["entity"]
-            wifi_mode = global_wifi.get("mode", "off")
-            
-            # When guest mode ON: set WiFi to the configured mode
-            service = "turn_on" if wifi_mode == "on" else "turn_off"
-            await self.hass.services.async_call(
-                "homeassistant", service, {"entity_id": wifi_entity}
-            )
+            # Validate WiFi entity exists
+            if self.hass.states.get(wifi_entity):
+                wifi_mode = global_wifi.get("mode", "off")
+                # When guest mode ON: set WiFi to the configured mode
+                service = "turn_on" if wifi_mode == "on" else "turn_off"
+                await self.hass.services.async_call(
+                    "homeassistant", service, {"entity_id": wifi_entity}
+                )
+            else:
+                _LOGGER.warning(f"Configured WiFi entity '{wifi_entity}' no longer exists")
 
         self.async_write_ha_state()
 

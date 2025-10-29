@@ -386,26 +386,46 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
                 entity_options[entity_id] = f"{friendly_name} ({entity_id})"
 
+        # Clean up non-existent entities from zone data
+        valid_automations_off = [e for e in zone.get(CONF_AUTOMATIONS_OFF, []) if e in automation_options]
+        valid_automations_on = [e for e in zone.get(CONF_AUTOMATIONS_ON, []) if e in automation_options]
+        valid_scripts_off = [e for e in zone.get(CONF_SCRIPTS_OFF, []) if e in script_options]
+        valid_scripts_on = [e for e in zone.get(CONF_SCRIPTS_ON, []) if e in script_options]
+        valid_entities_off = [e for e in zone.get(CONF_ENTITIES_OFF, []) if e in entity_options]
+        valid_entities_on = [e for e in zone.get(CONF_ENTITIES_ON, []) if e in entity_options]
+
+        # Log removed entities
+        removed_count = (
+            len(zone.get(CONF_AUTOMATIONS_OFF, [])) - len(valid_automations_off) +
+            len(zone.get(CONF_AUTOMATIONS_ON, [])) - len(valid_automations_on) +
+            len(zone.get(CONF_SCRIPTS_OFF, [])) - len(valid_scripts_off) +
+            len(zone.get(CONF_SCRIPTS_ON, [])) - len(valid_scripts_on) +
+            len(zone.get(CONF_ENTITIES_OFF, [])) - len(valid_entities_off) +
+            len(zone.get(CONF_ENTITIES_ON, [])) - len(valid_entities_on)
+        )
+        if removed_count > 0:
+            _LOGGER.info(f"Removed {removed_count} non-existent entities from zone '{zone['name']}'")
+
         schema = vol.Schema(
             {
                 vol.Required(CONF_ZONE_NAME, default=zone["name"]): cv.string,
                 vol.Optional(
-                    CONF_AUTOMATIONS_OFF, default=zone.get(CONF_AUTOMATIONS_OFF, [])
+                    CONF_AUTOMATIONS_OFF, default=valid_automations_off
                 ): vol.All(cv.multi_select(automation_options)),
                 vol.Optional(
-                    CONF_AUTOMATIONS_ON, default=zone.get(CONF_AUTOMATIONS_ON, [])
+                    CONF_AUTOMATIONS_ON, default=valid_automations_on
                 ): vol.All(cv.multi_select(automation_options)),
                 vol.Optional(
-                    CONF_SCRIPTS_OFF, default=zone.get(CONF_SCRIPTS_OFF, [])
+                    CONF_SCRIPTS_OFF, default=valid_scripts_off
                 ): vol.All(cv.multi_select(script_options)),
                 vol.Optional(
-                    CONF_SCRIPTS_ON, default=zone.get(CONF_SCRIPTS_ON, [])
+                    CONF_SCRIPTS_ON, default=valid_scripts_on
                 ): vol.All(cv.multi_select(script_options)),
                 vol.Optional(
-                    CONF_ENTITIES_OFF, default=zone.get(CONF_ENTITIES_OFF, [])
+                    CONF_ENTITIES_OFF, default=valid_entities_off
                 ): vol.All(cv.multi_select(entity_options)),
                 vol.Optional(
-                    CONF_ENTITIES_ON, default=zone.get(CONF_ENTITIES_ON, [])
+                    CONF_ENTITIES_ON, default=valid_entities_on
                 ): vol.All(cv.multi_select(entity_options)),
             }
         )
