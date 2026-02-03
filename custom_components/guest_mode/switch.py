@@ -202,20 +202,23 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
                 "homeassistant", "turn_on", {"entity_id": entity_id}
             )
 
-        # Handle global WiFi
-        global_wifi = self.entry.data.get("global_wifi", {})
-        if global_wifi.get("entity"):
-            wifi_entity = global_wifi["entity"]
-            # Validate WiFi entity exists
-            if self.hass.states.get(wifi_entity):
-                wifi_mode = global_wifi.get("mode", "off")
-                # When guest mode ON: set WiFi to the configured mode
-                service = "turn_on" if wifi_mode == "on" else "turn_off"
-                await self.hass.services.async_call(
-                    "homeassistant", service, {"entity_id": wifi_entity}
-                )
-            else:
-                _LOGGER.warning(f"Configured WiFi entity '{wifi_entity}' no longer exists")
+        # Handle global WiFi only when this is the first active zone
+        if not self._other_zones_active():
+            global_wifi = self.entry.data.get("global_wifi", {})
+            if global_wifi.get("entity"):
+                wifi_entity = global_wifi["entity"]
+                # Validate WiFi entity exists
+                if self.hass.states.get(wifi_entity):
+                    wifi_mode = global_wifi.get("mode", "off")
+                    # When guest mode ON: set WiFi to the configured mode
+                    service = "turn_on" if wifi_mode == "on" else "turn_off"
+                    await self.hass.services.async_call(
+                        "homeassistant", service, {"entity_id": wifi_entity}
+                    )
+                else:
+                    _LOGGER.warning(
+                        f"Configured WiFi entity '{wifi_entity}' no longer exists"
+                    )
 
         self.async_write_ha_state()
 
@@ -234,17 +237,18 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
                 )
             del data["saved_states"][self.zone_id]
         
-        # Handle global WiFi - switch to opposite of configured mode
-        global_wifi = self.entry.data.get("global_wifi", {})
-        if global_wifi.get("entity"):
-            wifi_entity = global_wifi["entity"]
-            wifi_mode = global_wifi.get("mode", "off")
-            
-            # When guest mode OFF: set WiFi to opposite of configured mode
-            service = "turn_off" if wifi_mode == "on" else "turn_on"
-            await self.hass.services.async_call(
-                "homeassistant", service, {"entity_id": wifi_entity}
-            )
+        # Handle global WiFi - switch to opposite of configured mode only on last zone off
+        if not self._other_zones_active():
+            global_wifi = self.entry.data.get("global_wifi", {})
+            if global_wifi.get("entity"):
+                wifi_entity = global_wifi["entity"]
+                wifi_mode = global_wifi.get("mode", "off")
+                
+                # When guest mode OFF: set WiFi to opposite of configured mode
+                service = "turn_off" if wifi_mode == "on" else "turn_on"
+                await self.hass.services.async_call(
+                    "homeassistant", service, {"entity_id": wifi_entity}
+                )
 
         self.async_write_ha_state()
 
@@ -254,3 +258,14 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         state = await self.async_get_last_state()
         if state:
             self._is_on = state.state == "on"
+
+    def _other_zones_active(self) -> bool:
+        """Check if any other zone switch is currently on."""
+        zones = self.entry.data.get("zones", {})
+        for zone_id in zones:
+            if zone_id == self.zone_id:
+                continue
+            state = self.hass.states.get(f"switch.guest_mode_{zone_id}")
+            if state and state.state == "on":
+                return True
+        return False
