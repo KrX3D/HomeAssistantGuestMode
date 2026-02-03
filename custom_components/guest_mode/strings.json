@@ -3,27 +3,40 @@
     "step": {
       "user": {
         "title": "Guest Mode Setup",
-        "description": "Set up guest mode for your home. You can add multiple zones."
+        "description": "Click submit to set up Guest Mode",
+        "data": {
+          "action": "Action"
+        }
       },
       "add_zone": {
         "title": "Add Zone",
         "description": "Create a new guest mode zone",
         "data": {
-          "zone_name": "Zone Name (e.g., Living Room)",
-          "automations": "Automations to disable",
-          "scripts": "Scripts to disable",
-          "entities": "Entities to turn off",
-          "wifi_entity": "WiFi entity (optional)",
-          "wifi_mode": "WiFi mode when guest mode enabled"
+          "zone_name": "Zone Name",
+          "automations_off": "Automations to turn OFF",
+          "automations_on": "Automations to turn ON",
+          "scripts_off": "Scripts to turn OFF",
+          "scripts_on": "Scripts to turn ON",
+          "entities_off": "Entities to turn OFF",
+          "entities_on": "Entities to turn ON",
+          "add_another": "Add another zone"
+        }
+      },
+      "setup_wifi": {
+        "title": "WiFi Configuration",
+        "description": "Configure global WiFi settings (optional). When guest mode is ON, WiFi will be set to the selected mode. When guest mode is OFF, WiFi will be set to the opposite.",
+        "data": {
+          "wifi_entity": "WiFi Entity",
+          "wifi_mode": "WiFi Mode when Guest Mode is ON"
         }
       }
     }
   },
   "options": {
     "step": {
-      "manage_zones": {
-        "title": "Manage Zones",
-        "description": "Add, edit, or remove zones",
+      "manage_menu": {
+        "title": "Manage Guest Mode",
+        "description": "Add, edit, or delete zones, or configure WiFi",
         "data": {
           "action": "Action",
           "zone_select": "Select Zone"
@@ -31,25 +44,59 @@
       },
       "add_zone": {
         "title": "Add Zone",
+        "description": "Create a new guest mode zone",
         "data": {
           "zone_name": "Zone Name",
-          "automations": "Automations to disable",
-          "scripts": "Scripts to disable",
-          "entities": "Entities to turn off",
-          "wifi_entity": "WiFi entity (optional)",
-          "wifi_mode": "WiFi mode when guest mode enabled"
+          "automations_off": "Automations to turn OFF",
+          "automations_on": "Automations to turn ON",
+          "scripts_off": "Scripts to turn OFF",
+          "scripts_on": "Scripts to turn ON",
+          "entities_off": "Entities to turn OFF",
+          "entities_on": "Entities to turn ON"
         }
       },
       "edit_zone": {
         "title": "Edit Zone",
+        "description": "Modify an existing zone",
         "data": {
           "zone_name": "Zone Name",
-          "automations": "Automations to disable",
-          "scripts": "Scripts to disable",
-          "entities": "Entities to turn off",
-          "wifi_entity": "WiFi entity (optional)",
-          "wifi_mode": "WiFi mode when guest mode enabled"
+          "automations_off": "Automations to turn OFF",
+          "automations_on": "Automations to turn ON",
+          "scripts_off": "Scripts to turn OFF",
+          "scripts_on": "Scripts to turn ON",
+          "entities_off": "Entities to turn OFF",
+          "entities_on": "Entities to turn ON"
         }
+      },
+      "edit_global_wifi": {
+        "title": "WiFi Configuration",
+        "description": "Configure global WiFi settings",
+        "data": {
+          "wifi_entity": "WiFi Entity",
+          "wifi_mode": "WiFi Mode when Guest Mode is ON"
+        }
+      }
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration updated successfully!"
+    }
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "setup": "Set up first zone",
+        "setup_wifi": "Set up WiFi",
+        "add": "Add zone",
+        "edit": "Edit zone",
+        "delete": "Delete zone",
+        "edit_wifi": "Edit WiFi",
+        "done": "Done"
+      }
+    },
+    "wifi_mode": {
+      "options": {
+        "on": "ON",
+        "off": "OFF"
       }
     }
   }
