@@ -1,0 +1,103 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Gästemodus-Einrichtung",
+        "description": "Klicke auf „Senden“, um den Gästemodus einzurichten",
+        "data": {
+          "action": "Aktion"
+        }
+      },
+      "add_zone": {
+        "title": "Zone hinzufügen",
+        "description": "Neue Gästemodus-Zone erstellen",
+        "data": {
+          "zone_name": "Zonenname",
+          "automations_off": "Automationen zum Ausschalten",
+          "automations_on": "Automationen zum Einschalten",
+          "scripts_off": "Skripte zum Ausschalten",
+          "scripts_on": "Skripte zum Einschalten",
+          "entities_off": "Entitäten zum Ausschalten",
+          "entities_on": "Entitäten zum Einschalten",
+          "add_another": "Weitere Zone hinzufügen"
+        }
+      },
+      "setup_wifi": {
+        "title": "WLAN-Konfiguration",
+        "description": "Globale WLAN-Einstellungen konfigurieren (optional). Wenn der Gästemodus EIN ist, wird WLAN auf den gewählten Modus gesetzt. Wenn der Gästemodus AUS ist, wird WLAN auf den entgegengesetzten Modus gesetzt.",
+        "data": {
+          "wifi_entity": "WLAN-Entität",
+          "wifi_mode": "WLAN-Modus, wenn der Gästemodus EIN ist"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "manage_menu": {
+        "title": "Gästemodus verwalten",
+        "description": "Zonen hinzufügen, bearbeiten oder löschen oder WLAN konfigurieren",
+        "data": {
+          "action": "Aktion",
+          "zone_select": "Zone auswählen"
+        }
+      },
+      "add_zone": {
+        "title": "Zone hinzufügen",
+        "description": "Neue Gästemodus-Zone erstellen",
+        "data": {
+          "zone_name": "Zonenname",
+          "automations_off": "Automationen zum Ausschalten",
+          "automations_on": "Automationen zum Einschalten",
+          "scripts_off": "Skripte zum Ausschalten",
+          "scripts_on": "Skripte zum Einschalten",
+          "entities_off": "Entitäten zum Ausschalten",
+          "entities_on": "Entitäten zum Einschalten"
+        }
+      },
+      "edit_zone": {
+        "title": "Zone bearbeiten",
+        "description": "Vorhandene Zone ändern",
+        "data": {
+          "zone_name": "Zonenname",
+          "automations_off": "Automationen zum Ausschalten",
+          "automations_on": "Automationen zum Einschalten",
+          "scripts_off": "Skripte zum Ausschalten",
+          "scripts_on": "Skripte zum Einschalten",
+          "entities_off": "Entitäten zum Ausschalten",
+          "entities_on": "Entitäten zum Einschalten"
+        }
+      },
+      "edit_global_wifi": {
+        "title": "WLAN-Konfiguration",
+        "description": "Globale WLAN-Einstellungen konfigurieren",
+        "data": {
+          "wifi_entity": "WLAN-Entität",
+          "wifi_mode": "WLAN-Modus, wenn der Gästemodus EIN ist"
+        }
+      }
+    },
+    "abort": {
+      "reconfigure_successful": "Konfiguration erfolgreich aktualisiert!"
+    }
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "setup": "Erste Zone einrichten",
+        "setup_wifi": "WLAN einrichten",
+        "add": "Zone hinzufügen",
+        "edit": "Zone bearbeiten",
+        "delete": "Zone löschen",
+        "edit_wifi": "WLAN bearbeiten",
+        "done": "Fertig"
+      }
+    },
+    "wifi_mode": {
+      "options": {
+        "on": "EIN",
+        "off": "AUS"
+      }
+    }
+  }
+}
