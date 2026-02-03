@@ -21,10 +21,47 @@ CONF_WIFI_ENTITY = "wifi_entity"
 CONF_WIFI_MODE = "wifi_mode"
 
 
+def _build_entity_options(hass):
+    """Build cached entity options for selectors."""
+    entity_registry = entity_registry_async_get(hass)
+    registry_entities = entity_registry.entities
+    states = {state.entity_id: state for state in hass.states.async_all()}
+
+    automation_options = {}
+    script_options = {}
+    entity_options = {}
+
+    for entity_id in sorted(states):
+        state = states[entity_id]
+        domain = entity_id.split(".", 1)[0]
+        if domain not in ("automation", "script"):
+            target = entity_options
+        elif domain == "automation":
+            target = automation_options
+        else:
+            target = script_options
+
+        registry_entry = registry_entities.get(entity_id)
+        friendly_name = None
+        if registry_entry:
+            friendly_name = registry_entry.name or registry_entry.original_name
+        if not friendly_name:
+            friendly_name = state.attributes.get("friendly_name", entity_id)
+        target[entity_id] = f"{friendly_name} ({entity_id})"
+
+    return automation_options, script_options, entity_options
+
+
 class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Guest Mode."""
 
     VERSION = 1
+
+    def _get_entity_options(self):
+        """Return cached entity options."""
+        if not hasattr(self, "_entity_options_cache"):
+            self._entity_options_cache = _build_entity_options(self.hass)
+        return self._entity_options_cache
 
     async def async_step_user(self, user_input=None):
         """Main setup menu (initial step)."""
@@ -87,25 +124,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Return to main menu after adding zone
             return await self.async_step_user()
 
-        # Build available entity lists with friendly names (cached for efficiency)
-        automation_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
-            state = self.hass.states.get(entity_id)
-            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            automation_options[entity_id] = f"{friendly_name} ({entity_id})"
-
-        script_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids("script")):
-            state = self.hass.states.get(entity_id)
-            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            script_options[entity_id] = f"{friendly_name} ({entity_id})"
-
-        entity_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids()):
-            if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
-                state = self.hass.states.get(entity_id)
-                friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-                entity_options[entity_id] = f"{friendly_name} ({entity_id})"
+        automation_options, script_options, entity_options = self._get_entity_options()
 
         schema = vol.Schema(
             {
@@ -186,6 +205,13 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         self._config_entry = config_entry
         self.zones = dict(config_entry.data.get("zones", {}))
         self.global_wifi = config_entry.data.get("global_wifi", {})
+        self._entity_options_cache = None
+
+    def _get_entity_options(self):
+        """Return cached entity options."""
+        if self._entity_options_cache is None:
+            self._entity_options_cache = _build_entity_options(self.hass)
+        return self._entity_options_cache
 
     async def async_step_init(self, user_input=None):
         """Options step."""
@@ -296,25 +322,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
             await self.hass.config_entries.async_reload(self._config_entry.entry_id)
             return await self.async_step_manage_menu()
 
-        # Build entity options with friendly names
-        automation_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
-            state = self.hass.states.get(entity_id)
-            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            automation_options[entity_id] = f"{friendly_name} ({entity_id})"
-
-        script_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids("script")):
-            state = self.hass.states.get(entity_id)
-            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            script_options[entity_id] = f"{friendly_name} ({entity_id})"
-
-        entity_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids()):
-            if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
-                state = self.hass.states.get(entity_id)
-                friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-                entity_options[entity_id] = f"{friendly_name} ({entity_id})"
+        automation_options, script_options, entity_options = self._get_entity_options()
 
         schema = vol.Schema(
             {
@@ -366,25 +374,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         zone = self.zones[self.zone_to_edit]
 
-        # Build entity options with friendly names
-        automation_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids("automation")):
-            state = self.hass.states.get(entity_id)
-            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            automation_options[entity_id] = f"{friendly_name} ({entity_id})"
-
-        script_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids("script")):
-            state = self.hass.states.get(entity_id)
-            friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-            script_options[entity_id] = f"{friendly_name} ({entity_id})"
-
-        entity_options = {}
-        for entity_id in sorted(self.hass.states.async_entity_ids()):
-            if not entity_id.startswith("automation.") and not entity_id.startswith("script."):
-                state = self.hass.states.get(entity_id)
-                friendly_name = state.attributes.get("friendly_name", entity_id) if state else entity_id
-                entity_options[entity_id] = f"{friendly_name} ({entity_id})"
+        automation_options, script_options, entity_options = self._get_entity_options()
 
         # Clean up non-existent entities from zone data
         valid_automations_off = [e for e in zone.get(CONF_AUTOMATIONS_OFF, []) if e in automation_options]
