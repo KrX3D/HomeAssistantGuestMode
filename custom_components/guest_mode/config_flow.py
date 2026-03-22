@@ -42,9 +42,24 @@ _SELECTOR_WIFI = selector.EntitySelector(
 )
 
 
-def _zone_schema(defaults: dict | None = None) -> vol.Schema:
-    """Return the zone add/edit schema with optional pre-filled defaults."""
+def _zone_schema(defaults: dict | None = None, exclude_entities: list[str] | None = None) -> vol.Schema:
+    """Return the zone add/edit schema with optional pre-filled defaults.
+
+    exclude_entities: entity IDs to hide from the general entity picker
+    (used to filter out the integration's own switches).
+    """
     d = defaults or {}
+
+    if exclude_entities:
+        entities_selector = selector.EntitySelector(
+            selector.EntitySelectorConfig(
+                multiple=True,
+                exclude_entities=exclude_entities,
+            )
+        )
+    else:
+        entities_selector = _SELECTOR_ENTITIES
+
     return vol.Schema(
         {
             vol.Required(CONF_ZONE_NAME, default=d.get(CONF_ZONE_NAME, "")): cv.string,
@@ -52,8 +67,8 @@ def _zone_schema(defaults: dict | None = None) -> vol.Schema:
             vol.Optional(CONF_AUTOMATIONS_ON,  default=d.get(CONF_AUTOMATIONS_ON,  [])): _SELECTOR_AUTOMATIONS,
             vol.Optional(CONF_SCRIPTS_OFF,     default=d.get(CONF_SCRIPTS_OFF,     [])): _SELECTOR_SCRIPTS,
             vol.Optional(CONF_SCRIPTS_ON,      default=d.get(CONF_SCRIPTS_ON,      [])): _SELECTOR_SCRIPTS,
-            vol.Optional(CONF_ENTITIES_OFF,    default=d.get(CONF_ENTITIES_OFF,    [])): _SELECTOR_ENTITIES,
-            vol.Optional(CONF_ENTITIES_ON,     default=d.get(CONF_ENTITIES_ON,     [])): _SELECTOR_ENTITIES,
+            vol.Optional(CONF_ENTITIES_OFF,    default=d.get(CONF_ENTITIES_OFF,    [])): entities_selector,
+            vol.Optional(CONF_ENTITIES_ON,     default=d.get(CONF_ENTITIES_ON,     [])): entities_selector,
         }
     )
 
@@ -85,6 +100,14 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self.zones: dict = {}
         self.global_wifi: dict = {}
+
+    def _guest_mode_entity_ids(self) -> list[str]:
+        """Return all switch entity IDs belonging to this integration."""
+        return [
+            state.entity_id
+            for state in self.hass.states.async_all("switch")
+            if state.entity_id.startswith("switch.guest_mode")
+        ]
 
     async def async_step_user(self, user_input=None):
         """Main setup menu."""
@@ -135,7 +158,7 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return await self.async_step_add_zone()
                 return await self.async_step_user()
 
-        schema = _zone_schema()
+        schema = _zone_schema(exclude_entities=self._guest_mode_entity_ids())
         schema = schema.extend(
             {vol.Optional("add_another", default=False): cv.boolean}
         )
@@ -178,6 +201,14 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
         self.zones: dict = dict(config_entry.data.get("zones", {}))
         self.global_wifi: dict = dict(config_entry.data.get("global_wifi", {}))
         self.zone_to_edit: str | None = None
+
+    def _guest_mode_entity_ids(self) -> list[str]:
+        """Return all switch entity IDs belonging to this integration."""
+        return [
+            state.entity_id
+            for state in self.hass.states.async_all("switch")
+            if state.entity_id.startswith("switch.guest_mode")
+        ]
 
     # ------------------------------------------------------------------
     # Helpers
@@ -310,7 +341,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="add_zone",
-            data_schema=_zone_schema(),
+            data_schema=_zone_schema(exclude_entities=self._guest_mode_entity_ids()),
             errors=errors,
         )
 
@@ -339,6 +370,6 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="edit_zone",
-            data_schema=_zone_schema(zone),
+            data_schema=_zone_schema(zone, exclude_entities=self._guest_mode_entity_ids()),
             errors=errors,
         )

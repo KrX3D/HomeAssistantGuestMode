@@ -60,9 +60,6 @@ def _device_info(entry: ConfigEntry) -> dr.DeviceInfo:
 class MainGuestModeSwitch(SwitchEntity, RestoreEntity):
     """Master switch — delegates to every zone switch."""
 
-    _attr_has_entity_name = True
-    _attr_translation_key = "guest_mode"
-
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
@@ -119,8 +116,6 @@ class MainGuestModeSwitch(SwitchEntity, RestoreEntity):
 
 class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
     """Switch for a single guest mode zone."""
-
-    _attr_has_entity_name = True
 
     def __init__(
         self,
