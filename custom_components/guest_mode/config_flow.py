@@ -35,10 +35,7 @@ _SELECTOR_SCRIPTS = selector.EntitySelector(
     selector.EntitySelectorConfig(domain="script", multiple=True)
 )
 _SELECTOR_ENTITIES = selector.EntitySelector(
-    selector.EntitySelectorConfig(
-        exclude_domains=["automation", "script"],
-        multiple=True,
-    )
+    selector.EntitySelectorConfig(multiple=True)
 )
 _SELECTOR_WIFI = selector.EntitySelector(
     selector.EntitySelectorConfig(multiple=False)
