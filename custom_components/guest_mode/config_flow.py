@@ -8,6 +8,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import selector
+from homeassistant.helpers.entity_registry import async_get as er_async_get
 
 from .const import (
     DOMAIN,
@@ -45,10 +46,13 @@ _SELECTOR_WIFI = selector.EntitySelector(
 def _zone_schema(defaults: dict | None = None, exclude_entities: list[str] | None = None) -> vol.Schema:
     """Return the zone add/edit schema with optional pre-filled defaults.
 
-    exclude_entities: entity IDs to hide from the general entity picker
-    (used to filter out the integration's own switches).
+    exclude_entities: entity IDs to hide from the general entity picker.
+    Zone dicts store the human name under key "name"; CONF_ZONE_NAME is the
+    form field name — handle both so edit pre-population works correctly.
     """
     d = defaults or {}
+    # Zones are persisted with key "name"; the form field is CONF_ZONE_NAME ("zone_name")
+    name_default = d.get("name", d.get(CONF_ZONE_NAME, ""))
 
     if exclude_entities:
         entities_selector = selector.EntitySelector(
@@ -62,7 +66,7 @@ def _zone_schema(defaults: dict | None = None, exclude_entities: list[str] | Non
 
     return vol.Schema(
         {
-            vol.Required(CONF_ZONE_NAME, default=d.get(CONF_ZONE_NAME, "")): cv.string,
+            vol.Required(CONF_ZONE_NAME, default=name_default): cv.string,
             vol.Optional(CONF_AUTOMATIONS_OFF, default=d.get(CONF_AUTOMATIONS_OFF, [])): _SELECTOR_AUTOMATIONS,
             vol.Optional(CONF_AUTOMATIONS_ON,  default=d.get(CONF_AUTOMATIONS_ON,  [])): _SELECTOR_AUTOMATIONS,
             vol.Optional(CONF_SCRIPTS_OFF,     default=d.get(CONF_SCRIPTS_OFF,     [])): _SELECTOR_SCRIPTS,
@@ -245,9 +249,15 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
             elif action == "delete":
                 if zone_id and zone_id in self.zones:
+                    # Remove the switch entity from the registry immediately so it
+                    # doesn't show as "no longer provided" after reload
+                    entity_reg = er_async_get(self.hass)
+                    switch_entity_id = f"switch.guest_mode_{zone_id}"
+                    entry = entity_reg.async_get(switch_entity_id)
+                    if entry:
+                        entity_reg.async_remove(switch_entity_id)
                     self.zones.pop(zone_id)
                     self._save()
-                    # Reload to remove the switch; abort cleanly afterward
                     await self.hass.config_entries.async_reload(
                         self._config_entry.entry_id
                     )
@@ -266,6 +276,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
 
         if self.zones:
             zone_choices = {z_id: z["name"] for z_id, z in self.zones.items()}
+            first_zone = next(iter(zone_choices))
             actions = ["add", "edit", "delete", wifi_action, "done"]
             schema = vol.Schema(
                 {
@@ -274,7 +285,7 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                             options=actions, translation_key="action"
                         )
                     ),
-                    vol.Optional("zone_select"): selector.SelectSelector(
+                    vol.Optional("zone_select", default=first_zone): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
                                 {"value": k, "label": v}

@@ -117,6 +117,8 @@ class MainGuestModeSwitch(SwitchEntity, RestoreEntity):
 class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
     """Switch for a single guest mode zone."""
 
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         hass: HomeAssistant,
