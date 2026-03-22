@@ -3,14 +3,12 @@
     "step": {
       "user": {
         "title": "Gästemodus-Einrichtung",
-        "description": "Klicke auf „Senden“, um den Gästemodus einzurichten",
-        "data": {
-          "action": "Aktion"
-        }
+        "description": "Wähle eine Aktion, um fortzufahren",
+        "data": { "action": "Aktion" }
       },
       "add_zone": {
         "title": "Zone hinzufügen",
-        "description": "Neue Gästemodus-Zone erstellen",
+        "description": "Neue Gästemodus-Zone erstellen. Nutze das Suchfeld, um Entitäten nach Name oder ID zu finden.",
         "data": {
           "zone_name": "Zonenname",
           "automations_off": "Automationen zum Ausschalten",
@@ -19,15 +17,15 @@
           "scripts_on": "Skripte zum Einschalten",
           "entities_off": "Entitäten zum Ausschalten",
           "entities_on": "Entitäten zum Einschalten",
-          "add_another": "Weitere Zone hinzufügen"
+          "add_another": "Nach dem Speichern eine weitere Zone hinzufügen"
         }
       },
       "setup_wifi": {
         "title": "WLAN-Konfiguration",
-        "description": "Globale WLAN-Einstellungen konfigurieren (optional). Wenn der Gästemodus EIN ist, wird WLAN auf den gewählten Modus gesetzt. Wenn der Gästemodus AUS ist, wird WLAN auf den entgegengesetzten Modus gesetzt.",
+        "description": "Optional: WLAN-Entität konfigurieren, die beim Aktivieren des Gästemodus umgeschaltet wird.",
         "data": {
           "wifi_entity": "WLAN-Entität",
-          "wifi_mode": "WLAN-Modus, wenn der Gästemodus EIN ist"
+          "wifi_mode": "WLAN-Status, wenn der Gästemodus EIN ist"
         }
       }
     }
@@ -36,15 +34,12 @@
     "step": {
       "manage_menu": {
         "title": "Gästemodus verwalten",
-        "description": "Zonen hinzufügen, bearbeiten oder löschen oder WLAN konfigurieren",
-        "data": {
-          "action": "Aktion",
-          "zone_select": "Zone auswählen"
-        }
+        "description": "Zonen hinzufügen, bearbeiten oder löschen, oder WLAN-Einstellungen anpassen.",
+        "data": { "action": "Aktion", "zone_select": "Zone" }
       },
       "add_zone": {
         "title": "Zone hinzufügen",
-        "description": "Neue Gästemodus-Zone erstellen",
+        "description": "Neue Gästemodus-Zone erstellen. Nutze das Suchfeld, um Entitäten nach Name oder ID zu finden.",
         "data": {
           "zone_name": "Zonenname",
           "automations_off": "Automationen zum Ausschalten",
@@ -57,7 +52,7 @@
       },
       "edit_zone": {
         "title": "Zone bearbeiten",
-        "description": "Vorhandene Zone ändern",
+        "description": "Zoneneinstellungen ändern. Nutze das Suchfeld, um Entitäten nach Name oder ID zu finden.",
         "data": {
           "zone_name": "Zonenname",
           "automations_off": "Automationen zum Ausschalten",
@@ -70,10 +65,10 @@
       },
       "edit_global_wifi": {
         "title": "WLAN-Konfiguration",
-        "description": "Globale WLAN-Einstellungen konfigurieren",
+        "description": "WLAN-Entität konfigurieren, die mit dem Gästemodus umgeschaltet wird.",
         "data": {
           "wifi_entity": "WLAN-Entität",
-          "wifi_mode": "WLAN-Modus, wenn der Gästemodus EIN ist"
+          "wifi_mode": "WLAN-Status, wenn der Gästemodus EIN ist"
         }
       }
     },
@@ -84,20 +79,17 @@
   "selector": {
     "action": {
       "options": {
-        "setup": "Erste Zone einrichten",
+        "setup":      "Erste Zone einrichten",
         "setup_wifi": "WLAN einrichten",
-        "add": "Zone hinzufügen",
-        "edit": "Zone bearbeiten",
-        "delete": "Zone löschen",
-        "edit_wifi": "WLAN bearbeiten",
-        "done": "Fertig"
+        "add":        "Zone hinzufügen",
+        "edit":       "Zone bearbeiten",
+        "delete":     "Zone löschen",
+        "edit_wifi":  "WLAN bearbeiten",
+        "done":       "Fertig"
       }
     },
     "wifi_mode": {
-      "options": {
-        "on": "EIN",
-        "off": "AUS"
-      }
+      "options": { "on": "EIN", "off": "AUS" }
     }
   }
 }

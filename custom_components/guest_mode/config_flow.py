@@ -1,446 +1,347 @@
+"""Config flow for Guest Mode integration."""
+from __future__ import annotations
+
 import logging
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import selector
-from homeassistant.helpers.entity_registry import async_get as entity_registry_async_get
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    CONF_ZONE_NAME,
+    CONF_AUTOMATIONS_OFF,
+    CONF_AUTOMATIONS_ON,
+    CONF_SCRIPTS_OFF,
+    CONF_SCRIPTS_ON,
+    CONF_ENTITIES_OFF,
+    CONF_ENTITIES_ON,
+    CONF_WIFI_ENTITY,
+    CONF_WIFI_MODE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_ZONE_NAME = "zone_name"
-CONF_AUTOMATIONS_OFF = "automations_off"
-CONF_AUTOMATIONS_ON = "automations_on"
-CONF_SCRIPTS_OFF = "scripts_off"
-CONF_SCRIPTS_ON = "scripts_on"
-CONF_ENTITIES_OFF = "entities_off"
-CONF_ENTITIES_ON = "entities_on"
-CONF_WIFI_ENTITY = "wifi_entity"
-CONF_WIFI_MODE = "wifi_mode"
+# ---------------------------------------------------------------------------
+# Reusable entity selectors (searchable, fast — no manual options dict needed)
+# ---------------------------------------------------------------------------
+
+_SELECTOR_AUTOMATIONS = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="automation", multiple=True)
+)
+_SELECTOR_SCRIPTS = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="script", multiple=True)
+)
+_SELECTOR_ENTITIES = selector.EntitySelector(
+    selector.EntitySelectorConfig(
+        exclude_domains=["automation", "script"],
+        multiple=True,
+    )
+)
+_SELECTOR_WIFI = selector.EntitySelector(
+    selector.EntitySelectorConfig(multiple=False)
+)
 
 
-def _build_entity_options(hass):
-    """Build cached entity options for selectors."""
-    entity_registry = entity_registry_async_get(hass)
-    registry_entities = entity_registry.entities
-    states = {state.entity_id: state for state in hass.states.async_all()}
+def _zone_schema(defaults: dict | None = None) -> vol.Schema:
+    """Return the zone add/edit schema with optional pre-filled defaults."""
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_ZONE_NAME, default=d.get(CONF_ZONE_NAME, "")): cv.string,
+            vol.Optional(CONF_AUTOMATIONS_OFF, default=d.get(CONF_AUTOMATIONS_OFF, [])): _SELECTOR_AUTOMATIONS,
+            vol.Optional(CONF_AUTOMATIONS_ON,  default=d.get(CONF_AUTOMATIONS_ON,  [])): _SELECTOR_AUTOMATIONS,
+            vol.Optional(CONF_SCRIPTS_OFF,     default=d.get(CONF_SCRIPTS_OFF,     [])): _SELECTOR_SCRIPTS,
+            vol.Optional(CONF_SCRIPTS_ON,      default=d.get(CONF_SCRIPTS_ON,      [])): _SELECTOR_SCRIPTS,
+            vol.Optional(CONF_ENTITIES_OFF,    default=d.get(CONF_ENTITIES_OFF,    [])): _SELECTOR_ENTITIES,
+            vol.Optional(CONF_ENTITIES_ON,     default=d.get(CONF_ENTITIES_ON,     [])): _SELECTOR_ENTITIES,
+        }
+    )
 
-    automation_options = {}
-    script_options = {}
-    entity_options = {}
 
-    for entity_id in sorted(states):
-        state = states[entity_id]
-        domain = entity_id.split(".", 1)[0]
-        if domain not in ("automation", "script"):
-            target = entity_options
-        elif domain == "automation":
-            target = automation_options
-        else:
-            target = script_options
+def _wifi_schema(defaults: dict | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Optional(CONF_WIFI_ENTITY, default=d.get("entity", vol.UNDEFINED)): _SELECTOR_WIFI,
+            vol.Optional(CONF_WIFI_MODE,   default=d.get("mode", "off")): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["on", "off"],
+                    translation_key="wifi_mode",
+                )
+            ),
+        }
+    )
 
-        registry_entry = registry_entities.get(entity_id)
-        friendly_name = None
-        if registry_entry:
-            friendly_name = registry_entry.name or registry_entry.original_name
-        if not friendly_name:
-            friendly_name = state.attributes.get("friendly_name", entity_id)
-        target[entity_id] = f"{friendly_name} ({entity_id})"
 
-    return automation_options, script_options, entity_options
-
+# ---------------------------------------------------------------------------
+# Config flow (initial setup)
+# ---------------------------------------------------------------------------
 
 class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Guest Mode."""
 
     VERSION = 1
 
-    def _get_entity_options(self):
-        """Return cached entity options."""
-        if not hasattr(self, "_entity_options_cache"):
-            self._entity_options_cache = _build_entity_options(self.hass)
-        return self._entity_options_cache
+    def __init__(self) -> None:
+        self.zones: dict = {}
+        self.global_wifi: dict = {}
 
     async def async_step_user(self, user_input=None):
-        """Main setup menu (initial step)."""
-        # Temporary storage while configuring
-        if not hasattr(self, "zones"):
-            self.zones = {}
-        if not hasattr(self, "global_wifi"):
-            self.global_wifi = {}
-
+        """Main setup menu."""
         if user_input is not None:
             action = user_input.get("action")
-            if action == "setup":  # add / setup first zone
+            if action == "setup":
                 return await self.async_step_add_zone()
-            if action == "setup_wifi":  # configure global Wi-Fi
+            if action == "setup_wifi":
                 return await self.async_step_setup_wifi()
             if action == "done":
-                # Finish and create entry with whatever has been configured so far
                 return self.async_create_entry(
                     title="Guest Mode",
                     data={"zones": self.zones, "global_wifi": self.global_wifi},
                 )
 
-        # Show main menu with three actions: setup (zone), setup_wifi, done
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {
-                    vol.Required("action"): vol.In(
-                        ["setup", "setup_wifi", "done"]
+                {vol.Required("action"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=["setup", "setup_wifi", "done"],
+                        translation_key="action",
                     )
-                }
+                )}
             ),
-            description_placeholders={
-                "info": "Create zones and optionally configure WiFi. Use 'Done' when finished."
-            },
         )
 
     async def async_step_add_zone(self, user_input=None):
-        """Add a zone (sub-step). Return to main menu after OK."""
+        """Add a zone during initial setup."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            zone_name = user_input.get(CONF_ZONE_NAME, "").lower().replace(" ", "_")
+            zone_name = user_input.get(CONF_ZONE_NAME, "").strip()
             if not zone_name:
-                # redisplay form (validation)
-                return await self.async_step_add_zone()
+                errors[CONF_ZONE_NAME] = "zone_name_required"
+            else:
+                zone_id = zone_name.lower().replace(" ", "_")
+                self.zones[zone_id] = {
+                    "name": zone_name,
+                    CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                    CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
+                    CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
+                    CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
+                    CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
+                    CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
+                }
+                if user_input.get("add_another"):
+                    return await self.async_step_add_zone()
+                return await self.async_step_user()
 
-            self.zones[zone_name] = {
-                "name": user_input.get(CONF_ZONE_NAME, ""),
-                CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
-                CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
-                CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
-                CONF_SCRIPTS_ON: user_input.get(CONF_SCRIPTS_ON, []),
-                CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
-                CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
-            }
-
-            if user_input.get("add_another"):
-                # Let user add more zones immediately
-                return await self.async_step_add_zone()
-
-            # Return to main menu after adding zone
-            return await self.async_step_user()
-
-        automation_options, script_options, entity_options = self._get_entity_options()
-
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_ZONE_NAME): cv.string,
-                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
-                    cv.multi_select(automation_options)
-                )
-                if automation_options
-                else cv.string,
-                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
-                    cv.multi_select(automation_options)
-                )
-                if automation_options
-                else cv.string,
-                vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
-                    cv.multi_select(script_options)
-                )
-                if script_options
-                else cv.string,
-                vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
-                    cv.multi_select(script_options)
-                )
-                if script_options
-                else cv.string,
-                vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
-                    cv.multi_select(entity_options)
-                )
-                if entity_options
-                else cv.string,
-                vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
-                    cv.multi_select(entity_options)
-                )
-                if entity_options
-                else cv.string,
-                vol.Optional("add_another", default=False): cv.boolean,
-            }
-        )
-
-        return self.async_show_form(step_id="add_zone", data_schema=schema)
-
-    async def async_step_setup_wifi(self, user_input=None):
-        """Set up global WiFi (sub-step). Return to main menu after OK."""
-        if user_input is not None:
-            self.global_wifi = {
-                "entity": user_input.get(CONF_WIFI_ENTITY),
-                "mode": user_input.get(CONF_WIFI_MODE, "off"),
-            }
-            # Return to main menu after configuring WiFi
-            return await self.async_step_user()
-
-        schema = vol.Schema(
-            {
-                vol.Optional(CONF_WIFI_ENTITY): selector.EntitySelector(),
-                vol.Optional(CONF_WIFI_MODE, default="off"): vol.In(["on", "off"]),
-            }
+        schema = _zone_schema()
+        schema = schema.extend(
+            {vol.Optional("add_another", default=False): cv.boolean}
         )
 
         return self.async_show_form(
-            step_id="setup_wifi",
+            step_id="add_zone",
             data_schema=schema,
-            description_placeholders={
-                "setup": "Configure global WiFi settings (optional). Click OK to return to the main menu."
-            },
+            errors=errors,
+        )
+
+    async def async_step_setup_wifi(self, user_input=None):
+        """Configure global WiFi."""
+        if user_input is not None:
+            self.global_wifi = {
+                "entity": user_input.get(CONF_WIFI_ENTITY),
+                "mode":   user_input.get(CONF_WIFI_MODE, "off"),
+            }
+            return await self.async_step_user()
+
+        return self.async_show_form(
+            step_id="setup_wifi",
+            data_schema=_wifi_schema(),
         )
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        """Get the options flow."""
         return GuestModeOptionsFlow(config_entry)
 
+
+# ---------------------------------------------------------------------------
+# Options flow (reconfigure after setup)
+# ---------------------------------------------------------------------------
 
 class GuestModeOptionsFlow(config_entries.OptionsFlow):
     """Options flow for Guest Mode."""
 
-    def __init__(self, config_entry):
-        """Initialize."""
+    def __init__(self, config_entry) -> None:
         self._config_entry = config_entry
-        self.zones = dict(config_entry.data.get("zones", {}))
-        self.global_wifi = config_entry.data.get("global_wifi", {})
-        self._entity_options_cache = None
+        self.zones: dict = dict(config_entry.data.get("zones", {}))
+        self.global_wifi: dict = dict(config_entry.data.get("global_wifi", {}))
+        self.zone_to_edit: str | None = None
 
-    def _get_entity_options(self):
-        """Return cached entity options."""
-        if self._entity_options_cache is None:
-            self._entity_options_cache = _build_entity_options(self.hass)
-        return self._entity_options_cache
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _save(self) -> None:
+        """Persist current state back to the config entry."""
+        self.hass.config_entries.async_update_entry(
+            self._config_entry,
+            data={"zones": self.zones, "global_wifi": self.global_wifi},
+        )
+
+    # ------------------------------------------------------------------
+    # Steps
+    # ------------------------------------------------------------------
 
     async def async_step_init(self, user_input=None):
-        """Options step."""
         return await self.async_step_manage_menu()
 
     async def async_step_manage_menu(self, user_input=None):
         """Main management menu."""
         if user_input is not None:
             action = user_input.get("action")
+            zone_id = user_input.get("zone_select")
 
             if action == "add":
                 return await self.async_step_add_zone()
+
             elif action == "edit":
-                zone_id = user_input.get("zone_select")
-                if zone_id:
-                    self.zone_to_edit = zone_id
-                    return await self.async_step_edit_zone()
-                else:
-                    # Re-show menu if no zone selected
+                if not zone_id:
                     return await self.async_step_manage_menu()
+                self.zone_to_edit = zone_id
+                return await self.async_step_edit_zone()
+
             elif action == "delete":
-                zone_id = user_input.get("zone_select")
-                if zone_id:
-                    await self._delete_zone(zone_id)
-                    self.zones.pop(zone_id, None)
-                    self.hass.config_entries.async_update_entry(
-                        self._config_entry,
-                        data={"zones": self.zones, "global_wifi": self.global_wifi},
+                if zone_id and zone_id in self.zones:
+                    self.zones.pop(zone_id)
+                    self._save()
+                    # Reload to remove the switch; abort cleanly afterward
+                    await self.hass.config_entries.async_reload(
+                        self._config_entry.entry_id
                     )
-                    # Reload to remove the switch entity
-                    await self.hass.config_entries.async_reload(self._config_entry.entry_id)
+                    return self.async_abort(reason="reconfigure_successful")
                 return await self.async_step_manage_menu()
-            elif action == "edit_wifi" or action == "setup_wifi":
+
+            elif action in ("edit_wifi", "setup_wifi"):
                 return await self.async_step_edit_global_wifi()
+
             elif action == "done":
-                self.hass.config_entries.async_update_entry(
-                    self._config_entry,
-                    data={"zones": self.zones, "global_wifi": self.global_wifi},
-                )
+                self._save()
                 return self.async_abort(reason="reconfigure_successful")
 
-        zone_choices = {
-            zone_id: zone["name"] for zone_id, zone in self.zones.items()
-        }
-
-        # Build schema based on available zones
-        schema_dict = {}
+        wifi_configured = bool(self.global_wifi and self.global_wifi.get("entity"))
+        wifi_action = "edit_wifi" if wifi_configured else "setup_wifi"
 
         if self.zones:
-            # Check if WiFi is configured
-            wifi_configured = bool(self.global_wifi and self.global_wifi.get("entity"))
-            wifi_action = "edit_wifi" if wifi_configured else "setup_wifi"
+            zone_choices = {z_id: z["name"] for z_id, z in self.zones.items()}
             actions = ["add", "edit", "delete", wifi_action, "done"]
-            schema_dict[vol.Required("action")] = vol.In(actions)
-            schema_dict[vol.Required("zone_select")] = vol.In(zone_choices)
+            schema = vol.Schema(
+                {
+                    vol.Required("action"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=actions, translation_key="action"
+                        )
+                    ),
+                    vol.Optional("zone_select"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": k, "label": v}
+                                for k, v in zone_choices.items()
+                            ]
+                        )
+                    ),
+                }
+            )
         else:
-            # Check if WiFi is configured
-            wifi_configured = bool(self.global_wifi and self.global_wifi.get("entity"))
-            wifi_action = "edit_wifi" if wifi_configured else "setup_wifi"
             actions = ["add", wifi_action, "done"]
-            schema_dict[vol.Required("action")] = vol.In(actions)
-
-        schema = vol.Schema(schema_dict)
+            schema = vol.Schema(
+                {
+                    vol.Required("action"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=actions, translation_key="action"
+                        )
+                    ),
+                }
+            )
 
         return self.async_show_form(step_id="manage_menu", data_schema=schema)
 
     async def async_step_edit_global_wifi(self, user_input=None):
-        """Edit global WiFi settings."""
+        """Edit WiFi settings."""
         if user_input is not None:
             self.global_wifi = {
                 "entity": user_input.get(CONF_WIFI_ENTITY),
-                "mode": user_input.get(CONF_WIFI_MODE, "off"),
+                "mode":   user_input.get(CONF_WIFI_MODE, "off"),
             }
+            self._save()
             return await self.async_step_manage_menu()
 
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_WIFI_ENTITY, default=self.global_wifi.get("entity")
-                ): selector.EntitySelector(),
-                vol.Optional(
-                    CONF_WIFI_MODE, default=self.global_wifi.get("mode", "off")
-                ): vol.In(["on", "off"]),
-            }
+        return self.async_show_form(
+            step_id="edit_global_wifi",
+            data_schema=_wifi_schema(self.global_wifi),
         )
-
-        return self.async_show_form(step_id="edit_global_wifi", data_schema=schema)
 
     async def async_step_add_zone(self, user_input=None):
         """Add a new zone."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            zone_name = user_input[CONF_ZONE_NAME].lower().replace(" ", "_")
+            zone_name = user_input.get(CONF_ZONE_NAME, "").strip()
+            if not zone_name:
+                errors[CONF_ZONE_NAME] = "zone_name_required"
+            else:
+                zone_id = zone_name.lower().replace(" ", "_")
+                self.zones[zone_id] = {
+                    "name": zone_name,
+                    CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                    CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
+                    CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
+                    CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
+                    CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
+                    CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
+                }
+                self._save()
+                # Reload to create the new switch entity, then close the flow
+                await self.hass.config_entries.async_reload(
+                    self._config_entry.entry_id
+                )
+                return self.async_abort(reason="reconfigure_successful")
 
-            self.zones[zone_name] = {
-                "name": user_input[CONF_ZONE_NAME],
-                CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
-                CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
-                CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
-                CONF_SCRIPTS_ON: user_input.get(CONF_SCRIPTS_ON, []),
-                CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
-                CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
-            }
-            self.hass.config_entries.async_update_entry(
-                self._config_entry,
-                data={"zones": self.zones, "global_wifi": self.global_wifi},
-            )
-            # Reload the config entry to create new switch entities
-            await self.hass.config_entries.async_reload(self._config_entry.entry_id)
-            return await self.async_step_manage_menu()
-
-        automation_options, script_options, entity_options = self._get_entity_options()
-
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_ZONE_NAME): cv.string,
-                vol.Optional(CONF_AUTOMATIONS_OFF, default=[]): vol.All(
-                    cv.multi_select(automation_options)
-                ),
-                vol.Optional(CONF_AUTOMATIONS_ON, default=[]): vol.All(
-                    cv.multi_select(automation_options)
-                ),
-                vol.Optional(CONF_SCRIPTS_OFF, default=[]): vol.All(
-                    cv.multi_select(script_options)
-                ),
-                vol.Optional(CONF_SCRIPTS_ON, default=[]): vol.All(
-                    cv.multi_select(script_options)
-                ),
-                vol.Optional(CONF_ENTITIES_OFF, default=[]): vol.All(
-                    cv.multi_select(entity_options)
-                ),
-                vol.Optional(CONF_ENTITIES_ON, default=[]): vol.All(
-                    cv.multi_select(entity_options)
-                ),
-            }
+        return self.async_show_form(
+            step_id="add_zone",
+            data_schema=_zone_schema(),
+            errors=errors,
         )
-
-        return self.async_show_form(step_id="add_zone", data_schema=schema)
 
     async def async_step_edit_zone(self, user_input=None):
         """Edit an existing zone."""
-        if user_input is not None:
-            zone_id = self.zone_to_edit
-
-            self.zones[zone_id] = {
-                "name": user_input[CONF_ZONE_NAME],
-                CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
-                CONF_AUTOMATIONS_ON: user_input.get(CONF_AUTOMATIONS_ON, []),
-                CONF_SCRIPTS_OFF: user_input.get(CONF_SCRIPTS_OFF, []),
-                CONF_SCRIPTS_ON: user_input.get(CONF_SCRIPTS_ON, []),
-                CONF_ENTITIES_OFF: user_input.get(CONF_ENTITIES_OFF, []),
-                CONF_ENTITIES_ON: user_input.get(CONF_ENTITIES_ON, []),
-            }
-            self.hass.config_entries.async_update_entry(
-                self._config_entry,
-                data={"zones": self.zones, "global_wifi": self.global_wifi},
-            )
-            # Reload to update the switch entity
-            await self.hass.config_entries.async_reload(self._config_entry.entry_id)
-            return await self.async_step_manage_menu()
-
+        errors: dict[str, str] = {}
         zone = self.zones[self.zone_to_edit]
 
-        automation_options, script_options, entity_options = self._get_entity_options()
+        if user_input is not None:
+            zone_name = user_input.get(CONF_ZONE_NAME, "").strip()
+            if not zone_name:
+                errors[CONF_ZONE_NAME] = "zone_name_required"
+            else:
+                self.zones[self.zone_to_edit] = {
+                    "name": zone_name,
+                    CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                    CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
+                    CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
+                    CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
+                    CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
+                    CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
+                }
+                self._save()
+                # No reload needed for edits — switch will pick up data on next trigger
+                return await self.async_step_manage_menu()
 
-        # Clean up non-existent entities from zone data
-        valid_automations_off = [e for e in zone.get(CONF_AUTOMATIONS_OFF, []) if e in automation_options]
-        valid_automations_on = [e for e in zone.get(CONF_AUTOMATIONS_ON, []) if e in automation_options]
-        valid_scripts_off = [e for e in zone.get(CONF_SCRIPTS_OFF, []) if e in script_options]
-        valid_scripts_on = [e for e in zone.get(CONF_SCRIPTS_ON, []) if e in script_options]
-        valid_entities_off = [e for e in zone.get(CONF_ENTITIES_OFF, []) if e in entity_options]
-        valid_entities_on = [e for e in zone.get(CONF_ENTITIES_ON, []) if e in entity_options]
-
-        # Log removed entities
-        removed_count = (
-            len(zone.get(CONF_AUTOMATIONS_OFF, [])) - len(valid_automations_off) +
-            len(zone.get(CONF_AUTOMATIONS_ON, [])) - len(valid_automations_on) +
-            len(zone.get(CONF_SCRIPTS_OFF, [])) - len(valid_scripts_off) +
-            len(zone.get(CONF_SCRIPTS_ON, [])) - len(valid_scripts_on) +
-            len(zone.get(CONF_ENTITIES_OFF, [])) - len(valid_entities_off) +
-            len(zone.get(CONF_ENTITIES_ON, [])) - len(valid_entities_on)
+        return self.async_show_form(
+            step_id="edit_zone",
+            data_schema=_zone_schema(zone),
+            errors=errors,
         )
-        if removed_count > 0:
-            _LOGGER.info(f"Removed {removed_count} non-existent entities from zone '{zone['name']}'")
-
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_ZONE_NAME, default=zone["name"]): cv.string,
-                vol.Optional(
-                    CONF_AUTOMATIONS_OFF, default=valid_automations_off
-                ): vol.All(cv.multi_select(automation_options)),
-                vol.Optional(
-                    CONF_AUTOMATIONS_ON, default=valid_automations_on
-                ): vol.All(cv.multi_select(automation_options)),
-                vol.Optional(
-                    CONF_SCRIPTS_OFF, default=valid_scripts_off
-                ): vol.All(cv.multi_select(script_options)),
-                vol.Optional(
-                    CONF_SCRIPTS_ON, default=valid_scripts_on
-                ): vol.All(cv.multi_select(script_options)),
-                vol.Optional(
-                    CONF_ENTITIES_OFF, default=valid_entities_off
-                ): vol.All(cv.multi_select(entity_options)),
-                vol.Optional(
-                    CONF_ENTITIES_ON, default=valid_entities_on
-                ): vol.All(cv.multi_select(entity_options)),
-            }
-        )
-
-        return self.async_show_form(step_id="edit_zone", data_schema=schema)
-
-    async def _delete_zone(self, zone_id):
-        """Delete zone and its associated entities."""
-        try:
-            entity_registry = entity_registry_async_get(self.hass)
-
-            # Remove the zone switch entity - correct entity ID format
-            zone_switch_id = f"switch.guest_mode_{zone_id}"
-
-            # Find and remove from entity registry
-            for entity_id in list(entity_registry.entities.keys()):
-                if entity_id == zone_switch_id:
-                    _LOGGER.debug(f"Removing entity from registry: {entity_id}")
-                    entity_registry.async_remove(entity_id)
-                    break
-
-            # Also remove the state
-            if self.hass.states.get(zone_switch_id):
-                self.hass.states.async_remove(zone_switch_id)
-                _LOGGER.debug(f"Removed state: {zone_switch_id}")
-
-        except Exception as e:
-            _LOGGER.error(f"Error deleting zone entities: {e}")
