@@ -104,9 +104,9 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def _guest_mode_entity_ids(self) -> list[str]:
         """Return all switch entity IDs belonging to this integration."""
         return [
-            state.entity_id
-            for state in self.hass.states.async_all("switch")
-            if state.entity_id.startswith("switch.guest_mode")
+            eid
+            for eid in self.hass.states.async_entity_ids("switch")
+            if eid.startswith("switch.guest_mode")
         ]
 
     async def async_step_user(self, user_input=None):
@@ -205,9 +205,9 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
     def _guest_mode_entity_ids(self) -> list[str]:
         """Return all switch entity IDs belonging to this integration."""
         return [
-            state.entity_id
-            for state in self.hass.states.async_all("switch")
-            if state.entity_id.startswith("switch.guest_mode")
+            eid
+            for eid in self.hass.states.async_entity_ids("switch")
+            if eid.startswith("switch.guest_mode")
         ]
 
     # ------------------------------------------------------------------
