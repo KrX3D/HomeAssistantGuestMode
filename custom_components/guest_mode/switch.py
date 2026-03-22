@@ -136,7 +136,7 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
 
     @property
     def name(self) -> str:
-        return f"Guest Mode – {self.zone_data['name']}"
+        return self.zone_data["name"]
 
     @property
     def is_on(self) -> bool:
