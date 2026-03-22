@@ -96,7 +96,7 @@ After setup, the integration creates a **Guest Mode** device containing:
 - `switch.guest_mode` — main switch (toggles all zones at once)
 - `switch.guest_mode_<zone_id>` — one switch per configured zone
 
-Zone switches are displayed under the Guest Mode device using just the zone name (e.g. `Haus`, `Küche`).
+Zone switches are displayed under the Guest Mode device using just the zone name (e.g. `Downstairs`, `Kitchen`).
 
 ## Services
 
