@@ -8,6 +8,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -53,6 +54,21 @@ def _device_info(entry: ConfigEntry) -> dr.DeviceInfo:
     )
 
 
+def _zone_switch_entity_id(
+    hass: HomeAssistant, entry: ConfigEntry, zone_id: str
+) -> str | None:
+    """Resolve a zone switch's actual entity_id via the entity registry.
+
+    The entity_id Home Assistant assigns is derived from the device and
+    entity *names* (and may get a _2 suffix on collision), so it can differ
+    from a naive slug of the zone name. Looking it up by unique_id avoids
+    guessing it and silently targeting the wrong (or no) entity.
+    """
+    registry = er.async_get(hass)
+    unique_id = f"{DOMAIN}_zone_{zone_id}_{entry.entry_id}"
+    return registry.async_get_entity_id("switch", DOMAIN, unique_id)
+
+
 # ---------------------------------------------------------------------------
 # Main (all-zones) switch
 # ---------------------------------------------------------------------------
@@ -88,18 +104,22 @@ class MainGuestModeSwitch(SwitchEntity, RestoreEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._is_on = True
         for zone_id in self.entry.data.get("zones", {}):
+            entity_id = _zone_switch_entity_id(self.hass, self.entry, zone_id)
+            if not entity_id:
+                continue
             await self.hass.services.async_call(
-                "homeassistant", "turn_on",
-                {"entity_id": f"switch.guest_mode_{zone_id}"},
+                "homeassistant", "turn_on", {"entity_id": entity_id}
             )
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._is_on = False
         for zone_id in self.entry.data.get("zones", {}):
+            entity_id = _zone_switch_entity_id(self.hass, self.entry, zone_id)
+            if not entity_id:
+                continue
             await self.hass.services.async_call(
-                "homeassistant", "turn_off",
-                {"entity_id": f"switch.guest_mode_{zone_id}"},
+                "homeassistant", "turn_off", {"entity_id": entity_id}
             )
         self.async_write_ha_state()
 
@@ -182,6 +202,8 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
             if state:
                 data["saved_states"][self.zone_id][entity_id] = state.state
 
+        await data["store"].async_save(data["saved_states"])
+
         # Apply changes — use domain-specific services where possible
         await self._call_many("automation", "turn_off", valid[CONF_AUTOMATIONS_OFF])
         await self._call_many("automation", "turn_on",  valid[CONF_AUTOMATIONS_ON])
@@ -207,6 +229,7 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
 
         if self.zone_id in data["saved_states"]:
             saved = data["saved_states"].pop(self.zone_id)
+            await data["store"].async_save(data["saved_states"])
             for entity_id, state in saved.items():
                 domain = entity_id.split(".", 1)[0]
                 svc_domain = domain if domain in ("automation", "script") else "homeassistant"
@@ -289,7 +312,10 @@ class ZoneGuestModeSwitch(SwitchEntity, RestoreEntity):
         for zone_id in self.entry.data.get("zones", {}):
             if zone_id == self.zone_id:
                 continue
-            state = self.hass.states.get(f"switch.guest_mode_{zone_id}")
+            entity_id = _zone_switch_entity_id(self.hass, self.entry, zone_id)
+            if not entity_id:
+                continue
+            state = self.hass.states.get(entity_id)
             if state and state.state == "on":
                 return True
         return False

@@ -18,6 +18,10 @@
           "entities_off": "Entitäten zum Ausschalten",
           "entities_on": "Entitäten zum Einschalten",
           "add_another": "Nach dem Speichern eine weitere Zone hinzufügen"
+        },
+        "error": {
+          "zone_name_required": "Zonenname ist erforderlich.",
+          "zone_name_duplicate": "Eine Zone mit diesem Namen existiert bereits."
         }
       },
       "setup_wifi": {
@@ -48,6 +52,10 @@
           "scripts_on": "Skripte zum Einschalten",
           "entities_off": "Entitäten zum Ausschalten",
           "entities_on": "Entitäten zum Einschalten"
+        },
+        "error": {
+          "zone_name_required": "Zonenname ist erforderlich.",
+          "zone_name_duplicate": "Eine Zone mit diesem Namen existiert bereits."
         }
       },
       "edit_zone": {
@@ -61,6 +69,9 @@
           "scripts_on": "Skripte zum Einschalten",
           "entities_off": "Entitäten zum Ausschalten",
           "entities_on": "Entitäten zum Einschalten"
+        },
+        "error": {
+          "zone_name_required": "Zonenname ist erforderlich."
         }
       },
       "edit_global_wifi": {
