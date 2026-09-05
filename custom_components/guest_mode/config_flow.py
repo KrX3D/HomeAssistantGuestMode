@@ -149,18 +149,21 @@ class GuestModeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_ZONE_NAME] = "zone_name_required"
             else:
                 zone_id = zone_name.lower().replace(" ", "_")
-                self.zones[zone_id] = {
-                    "name": zone_name,
-                    CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
-                    CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
-                    CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
-                    CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
-                    CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
-                    CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
-                }
-                if user_input.get("add_another"):
-                    return await self.async_step_add_zone()
-                return await self.async_step_user()
+                if zone_id in self.zones:
+                    errors[CONF_ZONE_NAME] = "zone_name_duplicate"
+                else:
+                    self.zones[zone_id] = {
+                        "name": zone_name,
+                        CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                        CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
+                        CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
+                        CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
+                        CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
+                        CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
+                    }
+                    if user_input.get("add_another"):
+                        return await self.async_step_add_zone()
+                    return await self.async_step_user()
 
         schema = _zone_schema(exclude_entities=self._guest_mode_entity_ids())
         schema = schema.extend(
@@ -334,21 +337,24 @@ class GuestModeOptionsFlow(config_entries.OptionsFlow):
                 errors[CONF_ZONE_NAME] = "zone_name_required"
             else:
                 zone_id = zone_name.lower().replace(" ", "_")
-                self.zones[zone_id] = {
-                    "name": zone_name,
-                    CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
-                    CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
-                    CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
-                    CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
-                    CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
-                    CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
-                }
-                self._save()
-                # Reload to create the new switch entity, then close the flow
-                await self.hass.config_entries.async_reload(
-                    self._config_entry.entry_id
-                )
-                return self.async_abort(reason="reconfigure_successful")
+                if zone_id in self.zones:
+                    errors[CONF_ZONE_NAME] = "zone_name_duplicate"
+                else:
+                    self.zones[zone_id] = {
+                        "name": zone_name,
+                        CONF_AUTOMATIONS_OFF: user_input.get(CONF_AUTOMATIONS_OFF, []),
+                        CONF_AUTOMATIONS_ON:  user_input.get(CONF_AUTOMATIONS_ON,  []),
+                        CONF_SCRIPTS_OFF:     user_input.get(CONF_SCRIPTS_OFF,     []),
+                        CONF_SCRIPTS_ON:      user_input.get(CONF_SCRIPTS_ON,      []),
+                        CONF_ENTITIES_OFF:    user_input.get(CONF_ENTITIES_OFF,    []),
+                        CONF_ENTITIES_ON:     user_input.get(CONF_ENTITIES_ON,     []),
+                    }
+                    self._save()
+                    # Reload to create the new switch entity, then close the flow
+                    await self.hass.config_entries.async_reload(
+                        self._config_entry.entry_id
+                    )
+                    return self.async_abort(reason="reconfigure_successful")
 
         return self.async_show_form(
             step_id="add_zone",

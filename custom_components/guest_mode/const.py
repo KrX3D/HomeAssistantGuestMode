@@ -11,3 +11,5 @@ CONF_ENTITIES_OFF = "entities_off"
 CONF_ENTITIES_ON = "entities_on"
 CONF_WIFI_ENTITY = "wifi_entity"
 CONF_WIFI_MODE = "wifi_mode"
+
+STORAGE_VERSION = 1

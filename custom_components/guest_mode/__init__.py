@@ -7,9 +7,10 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import DOMAIN, STORAGE_VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,9 +27,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up integration from config entry."""
     hass.data.setdefault(DOMAIN, {})
+
+    # Saved pre-guest-mode entity states are persisted to disk so an active
+    # zone can still be restored correctly after a Home Assistant restart.
+    store: Store = Store(hass, STORAGE_VERSION, f"{DOMAIN}_{entry.entry_id}_saved_states")
+    saved_states = await store.async_load() or {}
+
     hass.data[DOMAIN][entry.entry_id] = {
-        "saved_states": {},
+        "saved_states": saved_states,
         "zones": entry.data.get("zones", {}),
+        "store": store,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -43,6 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
 
         saved = data["saved_states"].pop(zone_id)
+        await data["store"].async_save(data["saved_states"])
         for entity_id, state in saved.items():
             # Use domain-specific services for automations and scripts
             entity_domain = entity_id.split(".", 1)[0]
