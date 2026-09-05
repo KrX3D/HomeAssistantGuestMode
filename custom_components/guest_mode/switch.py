@@ -12,13 +12,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
-    DOMAIN,
     CONF_AUTOMATIONS_OFF,
     CONF_AUTOMATIONS_ON,
-    CONF_SCRIPTS_OFF,
-    CONF_SCRIPTS_ON,
     CONF_ENTITIES_OFF,
     CONF_ENTITIES_ON,
+    CONF_SCRIPTS_OFF,
+    CONF_SCRIPTS_ON,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
