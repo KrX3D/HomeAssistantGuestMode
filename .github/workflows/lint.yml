@@ -1,0 +1,46 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff check
+        run: ruff check custom_components
+
+  syntax:
+    name: Python syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compile all modules
+        run: python -m compileall -q custom_components
+
+      - name: Validate JSON files
+        run: |
+          for f in $(find custom_components -name "*.json"); do
+            python -m json.tool "$f" > /dev/null
+          done
