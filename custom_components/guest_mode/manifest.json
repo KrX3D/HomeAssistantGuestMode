@@ -4,9 +4,9 @@
   "codeowners": ["@KrX"],
   "config_flow": true,
   "documentation": "https://github.com/KrX3D/HomeAssistantGuestMode",
-  "issue_tracker": "https://github.com/KrX3D/HomeAssistantGuestMode/issues",
   "integration_type": "service",
   "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/KrX3D/HomeAssistantGuestMode/issues",
   "requirements": [],
   "version": "1.1.0"
 }
