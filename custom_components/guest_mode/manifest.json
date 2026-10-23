@@ -4,6 +4,9 @@
   "codeowners": [
     "@KrX3D"
   ],
+  "categories": [
+    "helpers"
+  ],
   "config_flow": true,
   "dependencies": [
     "scene"
