@@ -161,7 +161,7 @@
   },
   "exceptions": {
     "zone_not_active": {
-      "message": "Zone '{zone_id}' ist nicht aktiv, daher gibt es nichts wiederherzustellen."
+      "message": "Zone {zone_id} ist nicht aktiv, daher gibt es nichts wiederherzustellen."
     }
   },
   "issues": {
