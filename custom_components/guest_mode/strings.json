@@ -3,8 +3,12 @@
     "step": {
       "user": {
         "title": "Guest Mode Setup",
-        "description": "Choose an action to continue",
-        "data": { "action": "Action" }
+        "description": "Add at least one zone, optionally set up WiFi, then finish.",
+        "menu_options": {
+          "add_zone": "Add zone",
+          "wifi": "Set up WiFi",
+          "finish": "Finish"
+        }
       },
       "add_zone": {
         "title": "Add Zone",
@@ -17,12 +21,19 @@
           "scripts_on": "Scripts to turn ON",
           "entities_off": "Entities to turn OFF",
           "entities_on": "Entities to turn ON",
-          "add_another": "Add another zone after saving"
+          "auto_off_hours": "Auto-off after (hours)"
+        },
+        "data_description": {
+          "auto_off_hours": "Turn this zone off automatically after this many hours and restore the previous states. 0 disables the timer."
         }
       },
-      "setup_wifi": {
+      "preview": {
+        "title": "Review Zone",
+        "description": "Zone **{zone}** will do the following when switched on:\n\n**Turned OFF:** {turn_off}\n\n**Turned ON:** {turn_on}\n\n**Not found (will be skipped):** {missing}\n\n**Auto-off after:** {auto_off}\n\nSubmit to save this zone."
+      },
+      "wifi": {
         "title": "WiFi Configuration",
-        "description": "Optional: configure a WiFi entity to toggle when Guest Mode activates. When Guest Mode is ON the entity is set to the chosen mode; when OFF it reverts to the opposite.",
+        "description": "Optional: choose a WiFi entity to switch while Guest Mode is active. When Guest Mode is ON the entity is set to the chosen mode; when OFF it reverts to the opposite. Clear the entity to disable.",
         "data": {
           "wifi_entity": "WiFi Entity",
           "wifi_mode": "WiFi state when Guest Mode is ON"
@@ -31,17 +42,21 @@
     },
     "error": {
       "zone_name_required": "Zone name is required.",
-      "zone_name_duplicate": "A zone with this name already exists."
+      "zone_name_duplicate": "A zone with this name already exists.",
+      "zone_name_invalid": "Zone name must contain letters or digits."
     }
   },
   "options": {
     "step": {
-      "manage_menu": {
+      "init": {
         "title": "Manage Guest Mode",
-        "description": "Add, edit, or delete zones, or update WiFi settings.",
-        "data": {
-          "action": "Action",
-          "zone_select": "Zone"
+        "description": "Add, edit or delete zones, or update the WiFi settings.",
+        "menu_options": {
+          "add_zone": "Add zone",
+          "select_edit": "Edit zone",
+          "select_delete": "Delete zone",
+          "wifi": "Set up / edit WiFi",
+          "finish": "Finish"
         }
       },
       "add_zone": {
@@ -54,7 +69,18 @@
           "scripts_off": "Scripts to turn OFF",
           "scripts_on": "Scripts to turn ON",
           "entities_off": "Entities to turn OFF",
-          "entities_on": "Entities to turn ON"
+          "entities_on": "Entities to turn ON",
+          "auto_off_hours": "Auto-off after (hours)"
+        },
+        "data_description": {
+          "auto_off_hours": "Turn this zone off automatically after this many hours and restore the previous states. 0 disables the timer."
+        }
+      },
+      "select_edit": {
+        "title": "Edit Zone",
+        "description": "Choose the zone to edit.",
+        "data": {
+          "zone": "Zone"
         }
       },
       "edit_zone": {
@@ -67,12 +93,29 @@
           "scripts_off": "Scripts to turn OFF",
           "scripts_on": "Scripts to turn ON",
           "entities_off": "Entities to turn OFF",
-          "entities_on": "Entities to turn ON"
+          "entities_on": "Entities to turn ON",
+          "auto_off_hours": "Auto-off after (hours)",
+          "update_entity_id": "Also update the switch entity ID"
+        },
+        "data_description": {
+          "auto_off_hours": "Turn this zone off automatically after this many hours and restore the previous states. 0 disables the timer.",
+          "update_entity_id": "Renames the entity ID (switch.guest_mode_...) to match the new zone name. Automations that use the old ID must be updated."
         }
       },
-      "edit_global_wifi": {
+      "select_delete": {
+        "title": "Delete Zone",
+        "description": "Choose the zone to delete. If it is active, its previous states are restored first.",
+        "data": {
+          "zone": "Zone"
+        }
+      },
+      "preview": {
+        "title": "Review Zone",
+        "description": "Zone **{zone}** will do the following when switched on:\n\n**Turned OFF:** {turn_off}\n\n**Turned ON:** {turn_on}\n\n**Not found (will be skipped):** {missing}\n\n**Auto-off after:** {auto_off}\n\nSubmit to save this zone."
+      },
+      "wifi": {
         "title": "WiFi Configuration",
-        "description": "Configure the WiFi entity to toggle with Guest Mode.",
+        "description": "Optional: choose a WiFi entity to switch while Guest Mode is active. When Guest Mode is ON the entity is set to the chosen mode; when OFF it reverts to the opposite. Clear the entity to disable.",
         "data": {
           "wifi_entity": "WiFi Entity",
           "wifi_mode": "WiFi state when Guest Mode is ON"
@@ -81,29 +124,50 @@
     },
     "error": {
       "zone_name_required": "Zone name is required.",
-      "zone_name_duplicate": "A zone with this name already exists."
-    },
-    "abort": {
-      "reconfigure_successful": "Configuration updated successfully!"
+      "zone_name_duplicate": "A zone with this name already exists.",
+      "zone_name_invalid": "Zone name must contain letters or digits.",
+      "entity_id_taken": "An entity with this ID already exists."
+    }
+  },
+  "entity": {
+    "switch": {
+      "main": {
+        "name": "Guest Mode"
+      },
+      "zone": {
+        "name": "Zone"
+      }
     }
   },
   "selector": {
-    "action": {
-      "options": {
-        "setup":      "Set up first zone",
-        "setup_wifi": "Set up WiFi",
-        "add":        "Add zone",
-        "edit":       "Edit zone",
-        "delete":     "Delete zone",
-        "edit_wifi":  "Edit WiFi",
-        "done":       "Done"
-      }
-    },
     "wifi_mode": {
       "options": {
-        "on":  "ON",
+        "on": "ON",
         "off": "OFF"
       }
+    }
+  },
+  "services": {
+    "restore_zone_states": {
+      "name": "Restore Zone States",
+      "description": "Switch a zone off and restore the states saved when it was switched on.",
+      "fields": {
+        "zone_id": {
+          "name": "Zone ID",
+          "description": "The zone ID (for example living_room)."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "zone_not_active": {
+      "message": "Zone '{zone_id}' is not active, so there is nothing to restore."
+    }
+  },
+  "issues": {
+    "missing_entities": {
+      "title": "Guest Mode zone has missing entities",
+      "description": "Zone \"{zone}\" refers to entities that no longer exist: {entities}. They are skipped. Edit the zone in the Guest Mode options to remove or replace them."
     }
   }
 }

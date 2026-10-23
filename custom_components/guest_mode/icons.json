@@ -1,0 +1,20 @@
+{
+  "entity": {
+    "switch": {
+      "main": {
+        "default": "mdi:account-multiple"
+      },
+      "zone": {
+        "default": "mdi:door-closed",
+        "state": {
+          "on": "mdi:door-open"
+        }
+      }
+    }
+  },
+  "services": {
+    "restore_zone_states": {
+      "service": "mdi:backup-restore"
+    }
+  }
+}

@@ -1,10 +1,7 @@
 restore_zone_states:
-  name: "Restore Zone States"
-  description: "Restore saved states for a zone"
   fields:
     zone_id:
-      name: "Zone ID"
-      description: "The zone ID to restore"
       required: true
+      example: living_room
       selector:
         text:
