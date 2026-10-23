@@ -3,8 +3,12 @@
     "step": {
       "user": {
         "title": "Gästemodus-Einrichtung",
-        "description": "Wähle eine Aktion, um fortzufahren",
-        "data": { "action": "Aktion" }
+        "description": "Füge mindestens eine Zone hinzu, richte optional das WLAN ein und schließe dann ab.",
+        "menu_options": {
+          "add_zone": "Zone hinzufügen",
+          "wifi": "WLAN einrichten",
+          "finish": "Fertig"
+        }
       },
       "add_zone": {
         "title": "Zone hinzufügen",
@@ -17,12 +21,19 @@
           "scripts_on": "Skripte zum Einschalten",
           "entities_off": "Entitäten zum Ausschalten",
           "entities_on": "Entitäten zum Einschalten",
-          "add_another": "Nach dem Speichern eine weitere Zone hinzufügen"
+          "auto_off_hours": "Automatisch ausschalten nach (Stunden)"
+        },
+        "data_description": {
+          "auto_off_hours": "Schaltet diese Zone nach der angegebenen Zahl an Stunden automatisch aus und stellt die vorherigen Zustände wieder her. 0 deaktiviert den Timer."
         }
       },
-      "setup_wifi": {
+      "preview": {
+        "title": "Zone prüfen",
+        "description": "Zone **{zone}** macht beim Einschalten Folgendes:\n\n**Wird ausgeschaltet:** {turn_off}\n\n**Wird eingeschaltet:** {turn_on}\n\n**Nicht gefunden (wird übersprungen):** {missing}\n\n**Automatisch aus nach:** {auto_off}\n\nMit „Absenden“ wird die Zone gespeichert."
+      },
+      "wifi": {
         "title": "WLAN-Konfiguration",
-        "description": "Optional: WLAN-Entität konfigurieren, die beim Aktivieren des Gästemodus umgeschaltet wird.",
+        "description": "Optional: WLAN-Entität, die bei aktivem Gästemodus geschaltet wird. Ist der Gästemodus EIN, wird die Entität auf den gewählten Modus gesetzt; bei AUS wird sie umgekehrt. Zum Deaktivieren die Entität leeren.",
         "data": {
           "wifi_entity": "WLAN-Entität",
           "wifi_mode": "WLAN-Status, wenn der Gästemodus EIN ist"
@@ -31,15 +42,22 @@
     },
     "error": {
       "zone_name_required": "Zonenname ist erforderlich.",
-      "zone_name_duplicate": "Eine Zone mit diesem Namen existiert bereits."
+      "zone_name_duplicate": "Eine Zone mit diesem Namen existiert bereits.",
+      "zone_name_invalid": "Der Zonenname muss Buchstaben oder Ziffern enthalten."
     }
   },
   "options": {
     "step": {
-      "manage_menu": {
+      "init": {
         "title": "Gästemodus verwalten",
-        "description": "Zonen hinzufügen, bearbeiten oder löschen, oder WLAN-Einstellungen anpassen.",
-        "data": { "action": "Aktion", "zone_select": "Zone" }
+        "description": "Zonen hinzufügen, bearbeiten oder löschen oder die WLAN-Einstellungen ändern.",
+        "menu_options": {
+          "add_zone": "Zone hinzufügen",
+          "select_edit": "Zone bearbeiten",
+          "select_delete": "Zone löschen",
+          "wifi": "WLAN einrichten / bearbeiten",
+          "finish": "Fertig"
+        }
       },
       "add_zone": {
         "title": "Zone hinzufügen",
@@ -51,7 +69,18 @@
           "scripts_off": "Skripte zum Ausschalten",
           "scripts_on": "Skripte zum Einschalten",
           "entities_off": "Entitäten zum Ausschalten",
-          "entities_on": "Entitäten zum Einschalten"
+          "entities_on": "Entitäten zum Einschalten",
+          "auto_off_hours": "Automatisch ausschalten nach (Stunden)"
+        },
+        "data_description": {
+          "auto_off_hours": "Schaltet diese Zone nach der angegebenen Zahl an Stunden automatisch aus und stellt die vorherigen Zustände wieder her. 0 deaktiviert den Timer."
+        }
+      },
+      "select_edit": {
+        "title": "Zone bearbeiten",
+        "description": "Wähle die Zone, die du bearbeiten möchtest.",
+        "data": {
+          "zone": "Zone"
         }
       },
       "edit_zone": {
@@ -64,12 +93,29 @@
           "scripts_off": "Skripte zum Ausschalten",
           "scripts_on": "Skripte zum Einschalten",
           "entities_off": "Entitäten zum Ausschalten",
-          "entities_on": "Entitäten zum Einschalten"
+          "entities_on": "Entitäten zum Einschalten",
+          "auto_off_hours": "Automatisch ausschalten nach (Stunden)",
+          "update_entity_id": "Auch die Entitäts-ID des Schalters aktualisieren"
+        },
+        "data_description": {
+          "auto_off_hours": "Schaltet diese Zone nach der angegebenen Zahl an Stunden automatisch aus und stellt die vorherigen Zustände wieder her. 0 deaktiviert den Timer.",
+          "update_entity_id": "Benennt die Entitäts-ID (switch.guest_mode_...) passend zum neuen Zonennamen um. Automationen, die die alte ID verwenden, müssen angepasst werden."
         }
       },
-      "edit_global_wifi": {
+      "select_delete": {
+        "title": "Zone löschen",
+        "description": "Wähle die Zone, die gelöscht werden soll. Ist sie aktiv, werden zuvor die vorherigen Zustände wiederhergestellt.",
+        "data": {
+          "zone": "Zone"
+        }
+      },
+      "preview": {
+        "title": "Zone prüfen",
+        "description": "Zone **{zone}** macht beim Einschalten Folgendes:\n\n**Wird ausgeschaltet:** {turn_off}\n\n**Wird eingeschaltet:** {turn_on}\n\n**Nicht gefunden (wird übersprungen):** {missing}\n\n**Automatisch aus nach:** {auto_off}\n\nMit „Absenden“ wird die Zone gespeichert."
+      },
+      "wifi": {
         "title": "WLAN-Konfiguration",
-        "description": "WLAN-Entität konfigurieren, die mit dem Gästemodus umgeschaltet wird.",
+        "description": "Optional: WLAN-Entität, die bei aktivem Gästemodus geschaltet wird. Ist der Gästemodus EIN, wird die Entität auf den gewählten Modus gesetzt; bei AUS wird sie umgekehrt. Zum Deaktivieren die Entität leeren.",
         "data": {
           "wifi_entity": "WLAN-Entität",
           "wifi_mode": "WLAN-Status, wenn der Gästemodus EIN ist"
@@ -78,26 +124,50 @@
     },
     "error": {
       "zone_name_required": "Zonenname ist erforderlich.",
-      "zone_name_duplicate": "Eine Zone mit diesem Namen existiert bereits."
-    },
-    "abort": {
-      "reconfigure_successful": "Konfiguration erfolgreich aktualisiert!"
+      "zone_name_duplicate": "Eine Zone mit diesem Namen existiert bereits.",
+      "zone_name_invalid": "Der Zonenname muss Buchstaben oder Ziffern enthalten.",
+      "entity_id_taken": "Eine Entität mit dieser ID existiert bereits."
+    }
+  },
+  "entity": {
+    "switch": {
+      "main": {
+        "name": "Gästemodus"
+      },
+      "zone": {
+        "name": "Zone"
+      }
     }
   },
   "selector": {
-    "action": {
-      "options": {
-        "setup":      "Erste Zone einrichten",
-        "setup_wifi": "WLAN einrichten",
-        "add":        "Zone hinzufügen",
-        "edit":       "Zone bearbeiten",
-        "delete":     "Zone löschen",
-        "edit_wifi":  "WLAN bearbeiten",
-        "done":       "Fertig"
-      }
-    },
     "wifi_mode": {
-      "options": { "on": "EIN", "off": "AUS" }
+      "options": {
+        "on": "EIN",
+        "off": "AUS"
+      }
+    }
+  },
+  "services": {
+    "restore_zone_states": {
+      "name": "Zonenzustände wiederherstellen",
+      "description": "Schaltet eine Zone aus und stellt die beim Einschalten gespeicherten Zustände wieder her.",
+      "fields": {
+        "zone_id": {
+          "name": "Zonen-ID",
+          "description": "Die Zonen-ID (zum Beispiel living_room)."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "zone_not_active": {
+      "message": "Zone '{zone_id}' ist nicht aktiv, daher gibt es nichts wiederherzustellen."
+    }
+  },
+  "issues": {
+    "missing_entities": {
+      "title": "Gästemodus-Zone hat fehlende Entitäten",
+      "description": "Die Zone \"{zone}\" verweist auf Entitäten, die nicht mehr existieren: {entities}. Sie werden übersprungen. Bearbeite die Zone in den Gästemodus-Optionen, um sie zu entfernen oder zu ersetzen."
     }
   }
 }

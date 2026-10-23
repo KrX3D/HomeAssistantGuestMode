@@ -6,7 +6,9 @@ Guest Mode lets you toggle a set of automations, scripts, and entities for one o
 
 - **Main guest mode switch** to enable/disable all configured zones at once.
 - **Per-zone switches** to control guest mode behavior in specific areas.
-- **State restore** for everything the integration toggles.
+- **Full state restore** for everything the integration toggles. Lights, climate, covers, media players and similar entities get their brightness, setpoints, positions etc. back, not just on/off. Restore data survives restarts.
+- **Auto-off timer** per zone: switch the zone off automatically after a set number of hours.
+- **Preview before saving** — when you add or edit a zone you see what will be turned on/off and which entities no longer exist. Missing entities also show up under **Settings → Repairs**.
 - **Optional global WiFi handling** so you can force a guest WiFi device on or off while Guest Mode is active.
 - **Searchable entity pickers** in the UI — find entities by friendly name or entity ID.
 - **Live reconfiguration** — add, edit, or delete zones at any time without restarting Home Assistant.
@@ -33,7 +35,9 @@ When you turn a zone **OFF**:
 1. Saved states for that zone are restored.
 2. If global WiFi is configured and this is the **last active zone**, WiFi is set to the opposite mode.
 
-The **main Guest Mode switch** simply toggles all zones at once.
+Turning a zone on while it is already on does nothing, so the saved original states are never overwritten.
+
+The **main Guest Mode switch** toggles all zones at once and is **on while any zone is on**.
 
 ## Installation
 
@@ -56,9 +60,11 @@ Configuration is done entirely through the UI (Config Flow).
 
 ### Initial setup menu
 
-- **Set up first zone**: define a zone and the entities it should control.
+- **Add zone**: define a zone and the entities it should control.
 - **Set up WiFi**: optionally define a WiFi entity and the desired mode when Guest Mode is ON.
-- **Done**: finish configuration.
+- **Finish**: finish configuration.
+
+Only one Guest Mode instance can be configured.
 
 ### Reconfiguration (after setup)
 
@@ -74,13 +80,15 @@ Open **Settings → Devices & Services → Guest Mode → Configure** to manage 
 
 For each zone you can configure:
 
-- **Zone name** — used as the switch label and to generate the entity ID. Spaces are replaced with underscores (e.g. `Living Room` → `switch.guest_mode_living_room`).
+- **Zone name** — used as the switch label and to generate the entity ID (e.g. `Living Room` → `switch.guest_mode_living_room`).
 - Automations to turn **OFF**
 - Automations to turn **ON**
 - Scripts to turn **OFF**
 - Scripts to turn **ON**
 - Entities to turn **OFF**
 - Entities to turn **ON**
+- **Auto-off after (hours)** — `0` disables the timer.
+- When editing: **Also update the switch entity ID** renames the entity ID to match a new zone name.
 
 All entity fields support **search** — type a friendly name or entity ID to filter the list.
 
@@ -102,11 +110,11 @@ Zone switches are displayed under the Guest Mode device using just the zone name
 
 ### `guest_mode.restore_zone_states`
 
-Manually restores saved states for a specific zone without toggling the switch.
+Switches an active zone off and restores the states saved when it was switched on (same as turning the zone switch off, including WiFi handling).
 
 | Field   | Required | Description               |
 |---------|----------|---------------------------|
-| zone_id | Yes      | ID of the zone to restore |
+| zone_id | Yes      | ID of the zone to restore (e.g. `living_room`) |
 
 ## Usage examples
 
@@ -125,7 +133,9 @@ Use the main `Guest Mode` switch to enable or disable every configured zone simu
 - WiFi is toggled only when the first zone turns on or the last zone turns off, to avoid flipping the WiFi state while other zones are still active.
 - When WiFi is configured, it is always set to the **opposite** of the configured mode when Guest Mode is disabled.
 - Entities that no longer exist at the time a zone is activated are skipped and a warning is logged.
-- Zone IDs are derived from the zone name at creation time. Renaming a zone via Edit updates the display name but does **not** change the entity ID.
+- Zone IDs are derived from the zone name at creation time. Renaming a zone via Edit updates the display name but only changes the entity ID if you tick **Also update the switch entity ID**.
+- Deleting an active zone restores its saved states first.
+- Requires Home Assistant 2024.11 or newer.
 
 ## Support
 
