@@ -1,11 +1,11 @@
 {
   "domain": "guest_mode",
   "name": "Guest Mode",
-  "codeowners": [
-    "@KrX3D"
-  ],
   "categories": [
     "helpers"
+  ],
+  "codeowners": [
+    "@KrX3D"
   ],
   "config_flow": true,
   "dependencies": [
