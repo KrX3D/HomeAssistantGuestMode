@@ -149,7 +149,9 @@ class _ZoneFlowMixin:
         name = raw.strip()
         if not name:
             return name, "zone_name_required"
-        if not slugify(name):
+        # HA's slugify() returns "unknown" (not "") when nothing is left, so
+        # check for letters/digits directly.
+        if not any(ch.isalnum() for ch in name):
             return name, "zone_name_invalid"
         taken = {
             slugify(z["name"]) for zid, z in self.zones.items() if zid != editing
