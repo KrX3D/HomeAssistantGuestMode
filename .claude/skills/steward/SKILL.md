@@ -33,8 +33,10 @@ block in `strings.json` **and** in every file under `translations/`. A
 missing translation surfaces as a raw, untranslated key in the config flow
 UI — treat it as a real bug, not a nit.
 
-There is no automated Home Assistant test harness in this repo (no
-`pytest-homeassistant-custom-component` setup). Don't add one as a side
-effect of a PR that isn't about testing; if a PR would benefit from a
-regression test and none of the above tooling can express it, say so in
-the PR description rather than inventing a test framework on the spot.
+Tests use `pytest-homeassistant-custom-component` (pinned in
+`requirements_test.txt`) and live in `tests/`. Run them with
+`pip install -r requirements_test.txt && python -m pytest`; this needs the
+Python version the pinned Home Assistant requires (currently 3.14), so on an
+older host run them in a `python:3.14` container. The `Tests` workflow runs
+them in CI. Add a regression test with any behaviour fix in `manager.py`,
+`__init__.py` or the config flow.
